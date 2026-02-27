@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+app/android/.gradle/
+app/android/app/build/
+app/ios/build/
+app/ios/Pods/
+program/target/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# OS files
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Expo
+.expo/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Package locks (keep package-lock.json but ignore others)
+yarn.lock

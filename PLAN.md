@@ -1099,3 +1099,4 @@ snapduel/
 3. Mainnet deployment
 4. Backend deployment (single VPS or Railway/Render)
 5. Final security review
+
