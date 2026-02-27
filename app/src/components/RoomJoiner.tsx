@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { AmbientBackground } from './AmbientBackground';
+import { fonts, palette } from '../theme/ui';
 
 interface RoomJoinerProps {
   onJoin: (code: string) => void;
@@ -10,156 +12,82 @@ interface RoomJoinerProps {
 
 export function RoomJoiner({ onJoin, onCancel, error, loading }: RoomJoinerProps) {
   const [code, setCode] = useState('');
-
-  const handleSubmit = () => {
-    if (code.length === 6) {
-      onJoin(code.toUpperCase());
-    }
-  };
-
-  const isReady = code.length === 6;
+  const ready = code.length === 6;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>🔑</Text>
-      <Text style={styles.title}>Enter Invite Code</Text>
-      <Text style={styles.subtitle}>Get the 6-character code from your friend</Text>
-
-      <View style={styles.inputContainer}>
+      <AmbientBackground tone="cool" />
+      <View style={styles.card}>
+        <Text style={styles.head}>JOIN</Text>
         <TextInput
-          style={[styles.input, isReady && styles.inputReady]}
+          style={[styles.input, ready && styles.inputReady]}
           value={code}
-          onChangeText={(text) => setCode(text.toUpperCase().slice(0, 6))}
-          placeholder="------"
-          placeholderTextColor="#2A2A4A"
-          maxLength={6}
-          autoCapitalize="characters"
+          onChangeText={(t) => setCode(t.toUpperCase().slice(0, 6))}
+          placeholder="A1B2C3"
+          placeholderTextColor="rgba(166, 179, 205, 0.55)"
           autoCorrect={false}
+          autoCapitalize="characters"
+          maxLength={6}
           autoFocus
         />
+        {error ? <Text style={styles.err}>{error}</Text> : null}
+        <TouchableOpacity style={[styles.join, !ready && styles.joinOff]} onPress={() => ready && onJoin(code)} disabled={!ready || loading} activeOpacity={0.86}>
+          <Text style={styles.joinText}>{loading ? '...' : 'GO'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.back} onPress={onCancel} activeOpacity={0.86}>
+          <Text style={styles.backText}>BACK</Text>
+        </TouchableOpacity>
       </View>
-
-      {error && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={[styles.joinBtn, !isReady && styles.joinBtnDisabled]}
-        onPress={handleSubmit}
-        disabled={!isReady || loading}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.joinText, !isReady && styles.joinTextDisabled]}>
-          {loading ? 'Joining...' : '⚔️ Join Duel'}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
-        <Text style={styles.cancelText}>Cancel</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B0B1A',
-    justifyContent: 'center',
+  container: { flex: 1, backgroundColor: palette.bg, justifyContent: 'center', padding: 18 },
+  card: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panel,
+    padding: 18,
     alignItems: 'center',
-    padding: 32,
   },
-  icon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: '#7B7BA0',
-    fontSize: 14,
-    marginTop: 8,
-    marginBottom: 32,
-  },
-  inputContainer: {
-    width: '100%',
-  },
+  head: { color: palette.primary, fontFamily: fonts.mono, fontSize: 12, letterSpacing: 1.2 },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 20,
-    paddingVertical: 22,
-    paddingHorizontal: 32,
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#14F195',
-    letterSpacing: 10,
-    textAlign: 'center',
     width: '100%',
-    fontFamily: 'monospace',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  inputReady: {
-    borderColor: 'rgba(20, 241, 149, 0.4)',
-    backgroundColor: 'rgba(20, 241, 149, 0.06)',
-  },
-  errorBox: {
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    marginTop: 10,
     borderRadius: 12,
-    padding: 12,
-    marginTop: 16,
-    width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.2)',
-  },
-  errorText: {
-    color: '#FF6666',
-    fontSize: 14,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.bgAlt,
+    paddingVertical: 12,
     textAlign: 'center',
-    fontWeight: '600',
+    color: palette.text,
+    fontFamily: fonts.mono,
+    fontSize: 34,
+    letterSpacing: 8,
   },
-  joinBtn: {
-    backgroundColor: '#14F195',
-    borderRadius: 16,
-    padding: 20,
+  inputReady: { borderColor: 'rgba(106, 245, 211, 0.6)' },
+  err: { marginTop: 8, color: palette.danger, fontFamily: fonts.body, fontSize: 13 },
+  join: {
+    marginTop: 10,
+    width: '100%',
+    borderRadius: 12,
+    backgroundColor: palette.primary,
+    paddingVertical: 12,
     alignItems: 'center',
+  },
+  joinOff: { backgroundColor: 'rgba(121, 139, 177, 0.45)' },
+  joinText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 26 },
+  back: {
+    marginTop: 8,
     width: '100%',
-    marginTop: 24,
-    shadowColor: '#14F195',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  joinBtnDisabled: {
-    backgroundColor: '#1E1E3A',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  joinText: {
-    color: '#000',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  joinTextDisabled: {
-    color: '#4A4A6A',
-  },
-  cancelBtn: {
-    marginTop: 24,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.4)',
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.bgAlt,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
-  cancelText: {
-    color: '#FF6666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  backText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
 });

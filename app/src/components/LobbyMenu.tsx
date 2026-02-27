@@ -1,5 +1,9 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Animated } from 'react-native';
+import { AmbientBackground } from './AmbientBackground';
+import { StatsBar } from './StatsBar';
+import { fonts, palette } from '../theme/ui';
+import { getPlayerStats, PlayerStats } from '../services/api';
 
 interface LobbyMenuProps {
   playsRemaining: number | null;
@@ -8,6 +12,7 @@ interface LobbyMenuProps {
   onJoinWithCode: () => void;
   onTopUp: () => void;
   onRefreshCredits: () => Promise<number>;
+  onViewHistory: () => void;
   walletAddress: string;
 }
 
@@ -18,286 +23,151 @@ export function LobbyMenu({
   onJoinWithCode,
   onTopUp,
   onRefreshCredits,
+  onViewHistory,
   walletAddress,
 }: LobbyMenuProps) {
-  // Refresh credits when lobby mounts (handles returning from a match)
+  const [stats, setStats] = useState<PlayerStats | null>(null);
+  const pulse = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     onRefreshCredits();
+    getPlayerStats().then(setStats).catch(() => {});
   }, []);
 
-  const isLoading = playsRemaining === null;
-  const needsTopUp = !isLoading && playsRemaining <= 0;
-  const displayCredits = isLoading ? '...' : String(playsRemaining);
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.03, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const loading = playsRemaining === null;
+  const noPlays = !loading && playsRemaining <= 0;
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.logoRow}>
-          <Text style={styles.logoIcon}>⚡</Text>
-          <Text style={styles.logoText}>SNAP</Text>
-          <Text style={styles.logoAccent}>DUEL</Text>
+      <AmbientBackground tone="cool" />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.head}>
+          <Text style={styles.logo}>SNAPDUEL</Text>
+          <Text style={styles.wallet}>{walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}</Text>
         </View>
-        <View style={styles.walletPill}>
-          <View style={styles.walletDot} />
-          <Text style={styles.walletText}>
-            {walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}
-          </Text>
-        </View>
-      </View>
 
-      {/* Credits Card */}
-      <View style={styles.creditsCard}>
-        <View style={styles.creditsInner}>
-          <Text style={styles.creditsLabel}>PLAYS REMAINING</Text>
-          {isLoading ? (
-            <ActivityIndicator color="#14F195" size="small" style={{ marginTop: 8 }} />
-          ) : (
-            <Text style={[styles.creditsValue, needsTopUp && styles.creditsEmpty]}>
-              {displayCredits}
-            </Text>
-          )}
+        <View style={styles.creditCard}>
+          <Text style={styles.creditLabel}>PLAYS</Text>
+          {loading ? <ActivityIndicator color={palette.primary} /> : <Text style={[styles.credit, noPlays && styles.creditLow]}>{playsRemaining}</Text>}
         </View>
-        {needsTopUp && (
-          <View style={styles.creditsWarning}>
-            <Text style={styles.creditsWarningText}>Top up to keep playing!</Text>
-          </View>
+
+        {stats && stats.totalMatches > 0 && (
+          <StatsBar
+            wins={stats.wins}
+            losses={stats.losses}
+            currentStreak={stats.currentStreak}
+            bestReaction={stats.bestReaction}
+            winRate={stats.winRate}
+          />
         )}
-      </View>
 
-      {/* Actions */}
-      {needsTopUp ? (
-        <TouchableOpacity style={styles.topUpBtn} onPress={onTopUp} activeOpacity={0.8}>
-          <Text style={styles.topUpIcon}>🎁</Text>
-          <Text style={styles.topUpTitle}>GET 5 FREE PLAYS</Text>
-          <Text style={styles.topUpSub}>Dev mode — no SOL required</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.actionGroup}>
-          <TouchableOpacity style={styles.primaryBtn} onPress={onFindRandom} activeOpacity={0.8}>
-            <Text style={styles.primaryBtnIcon}>⚔️</Text>
-            <View>
-              <Text style={styles.primaryBtnText}>Find Random Opponent</Text>
-              <Text style={styles.primaryBtnSub}>Quick match • ~10 seconds</Text>
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.secondaryRow}>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={onChallengeFreund} activeOpacity={0.8}>
-              <Text style={styles.secondaryIcon}>👥</Text>
-              <Text style={styles.secondaryText}>Challenge Friend</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.secondaryBtn} onPress={onJoinWithCode} activeOpacity={0.8}>
-              <Text style={styles.secondaryIcon}>🔑</Text>
-              <Text style={styles.secondaryText}>Join with Code</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.quickRow}>
+          <Text style={styles.quick}>🧊 HOLD</Text>
+          <Text style={styles.quick}>👀 WAIT</Text>
+          <Text style={styles.quick}>⚡ TAP</Text>
         </View>
-      )}
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Powered by Solana</Text>
-      </View>
+        {noPlays ? (
+          <TouchableOpacity style={[styles.bigBtn, styles.refillBtn]} onPress={onTopUp} activeOpacity={0.86}>
+            <Text style={styles.bigBtnText}>+5 PLAYS</Text>
+          </TouchableOpacity>
+        ) : (
+          <Animated.View style={{ transform: [{ scale: pulse }] }}>
+            <TouchableOpacity style={styles.bigBtn} onPress={onFindRandom} activeOpacity={0.86}>
+              <Text style={styles.bigBtnText}>PLAY</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        <View style={styles.smallGrid}>
+          <TouchableOpacity style={styles.smallBtn} onPress={onChallengeFreund} activeOpacity={0.86}>
+            <Text style={styles.smallIcon}>🤝</Text>
+            <Text style={styles.smallText}>FRIEND</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.smallBtn} onPress={onJoinWithCode} activeOpacity={0.86}>
+            <Text style={styles.smallIcon}>🔑</Text>
+            <Text style={styles.smallText}>CODE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.smallBtn} onPress={onViewHistory} activeOpacity={0.86}>
+            <Text style={styles.smallIcon}>📜</Text>
+            <Text style={styles.smallText}>HISTORY</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B0B1A',
-    padding: 24,
-    paddingTop: 60,
-  },
-
-  // ─── Header ─────────────────────────────────────────────────
-  header: {
+  container: { flex: 1, backgroundColor: palette.bg },
+  scroll: { paddingTop: 58, paddingHorizontal: 18, paddingBottom: 28 },
+  head: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panel,
+    padding: 14,
+    marginBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 32,
   },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoIcon: {
-    fontSize: 24,
-    marginRight: 6,
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#FFF',
-    letterSpacing: 1,
-  },
-  logoAccent: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#14F195',
-    letterSpacing: 1,
-  },
-  walletPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  walletDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#14F195',
-    marginRight: 8,
-  },
-  walletText: {
-    color: '#7B7BA0',
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'monospace',
-  },
-
-  // ─── Credits Card ───────────────────────────────────────────
-  creditsCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-    marginBottom: 28,
-  },
-  creditsInner: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  creditsLabel: {
-    color: '#7B7BA0',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 2,
-  },
-  creditsValue: {
-    color: '#14F195',
-    fontSize: 56,
-    fontWeight: '900',
-    marginTop: 4,
-  },
-  creditsEmpty: {
-    color: '#FF4444',
-  },
-  creditsWarning: {
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 68, 68, 0.15)',
-  },
-  creditsWarningText: {
-    color: '#FF8888',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  // ─── Top Up ─────────────────────────────────────────────────
-  topUpBtn: {
-    backgroundColor: '#9945FF',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#9945FF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  topUpIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  topUpTitle: {
-    color: '#FFF',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  topUpSub: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-    marginTop: 4,
-  },
-
-  // ─── Action Buttons ─────────────────────────────────────────
-  actionGroup: {
-    gap: 12,
-  },
-  primaryBtn: {
-    backgroundColor: '#14F195',
-    borderRadius: 20,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#14F195',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  primaryBtnIcon: {
-    fontSize: 28,
-    marginRight: 14,
-  },
-  primaryBtnText: {
-    color: '#000',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  primaryBtnSub: {
-    color: 'rgba(0,0,0,0.5)',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  secondaryRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  secondaryBtn: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+  logo: { color: palette.text, fontFamily: fonts.display, fontSize: 28, lineHeight: 30 },
+  wallet: { color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
+  creditCard: {
     borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panelSoft,
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 10,
   },
-  secondaryIcon: {
-    fontSize: 24,
-    marginBottom: 8,
+  creditLabel: { color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
+  credit: { color: palette.success, fontFamily: fonts.display, fontSize: 44, lineHeight: 46 },
+  creditLow: { color: palette.danger },
+  quickRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panelSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
   },
-  secondaryText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
+  quick: { color: palette.text, fontFamily: fonts.body, fontSize: 13 },
+  bigBtn: {
+    borderRadius: 16,
+    backgroundColor: palette.primary,
+    paddingVertical: 20,
+    alignItems: 'center',
+    marginBottom: 10,
   },
-
-  // ─── Footer ─────────────────────────────────────────────────
-  footer: {
-    position: 'absolute',
-    bottom: 32,
-    left: 0,
-    right: 0,
+  refillBtn: { backgroundColor: palette.warning },
+  bigBtnText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 34, lineHeight: 36 },
+  smallGrid: { flexDirection: 'row', gap: 8 },
+  smallBtn: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panel,
+    paddingVertical: 12,
     alignItems: 'center',
   },
-  footerText: {
-    color: '#2A2A4A',
-    fontSize: 12,
-    letterSpacing: 1,
-  },
+  smallIcon: { fontSize: 20, marginBottom: 3 },
+  smallText: { color: palette.text, fontFamily: fonts.mono, fontSize: 11 },
 });

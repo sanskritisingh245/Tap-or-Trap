@@ -21,8 +21,14 @@ export interface MatchResult {
   won: boolean;
   winner: string;
   reaction: number | null;
+  opponentReaction: number | null;
   opponent: string;
   forfeitReason?: string;
+  currentStreak: number;
+  maxStreak: number;
+  bestReaction: number | null;
+  wins: number;
+  losses: number;
 }
 
 /**
@@ -41,6 +47,7 @@ export function useMatch() {
   const rttTracker = useRef(new RttTracker());
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tappedRef = useRef(false);
+  const completedMatchIds = useRef<Set<string>>(new Set());
 
   // ─── Polling ──────────────────────────────────────────────────────
 
@@ -76,17 +83,25 @@ export function useMatch() {
           break;
 
         case 'result':
+          completedMatchIds.current.add(id);
           setResult({
             won: data.won,
             winner: data.winner,
             reaction: data.reaction,
+            opponentReaction: data.opponentReaction ?? null,
             opponent: data.opponent,
             forfeitReason: data.forfeitReason,
+            currentStreak: data.currentStreak ?? 0,
+            maxStreak: data.maxStreak ?? 0,
+            bestReaction: data.bestReaction ?? null,
+            wins: data.wins ?? 0,
+            losses: data.losses ?? 0,
           });
           setPhase('result');
           break;
 
         case 'cancelled':
+          completedMatchIds.current.add(id);
           setPhase('cancelled');
           break;
 
@@ -108,6 +123,11 @@ export function useMatch() {
       const data = await api.getMatchmakingStatus();
 
       if (data.status === 'matched' && data.matchId) {
+        // Skip matches we've already seen results for (stale backend state)
+        if (completedMatchIds.current.has(data.matchId)) {
+          pollingRef.current = setTimeout(pollMatchmaking, 500);
+          return;
+        }
         setMatchId(data.matchId);
         setOpponent(data.opponent || null);
         setCommitment(data.commitment || null);

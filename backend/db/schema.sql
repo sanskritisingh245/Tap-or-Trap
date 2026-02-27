@@ -29,7 +29,13 @@ CREATE TABLE IF NOT EXISTS players (
     nonce_expires INTEGER,
     avg_rtt_ms REAL DEFAULT 100,
     last_seen INTEGER,
-    credits INTEGER NOT NULL DEFAULT 5
+    credits INTEGER NOT NULL DEFAULT 5,
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    current_streak INTEGER NOT NULL DEFAULT 0,
+    max_streak INTEGER NOT NULL DEFAULT 0,
+    best_reaction_ms REAL,
+    total_matches INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS queue (

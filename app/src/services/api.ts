@@ -181,3 +181,51 @@ export async function submitTap(
 export async function sendReady(matchId: string): Promise<any> {
   return apiFetch(`/match/${matchId}/ready`, { method: 'POST' });
 }
+
+// ─── Stats ───────────────────────────────────────────────────────
+
+export interface PlayerStats {
+  wins: number;
+  losses: number;
+  currentStreak: number;
+  maxStreak: number;
+  bestReaction: number | null;
+  totalMatches: number;
+  winRate: number;
+}
+
+export interface MatchHistoryEntry {
+  id: string;
+  opponent: string;
+  won: boolean;
+  cancelled: boolean;
+  myReaction: number | null;
+  opponentReaction: number | null;
+  forfeitReason: string | null;
+  timestamp: number;
+}
+
+export async function getPlayerStats(): Promise<PlayerStats> {
+  return apiFetch('/stats/me');
+}
+
+export async function getMatchHistory(): Promise<MatchHistoryEntry[]> {
+  const data = await apiFetch('/stats/history');
+  return data.history;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  wallet: string;
+  wins: number;
+  losses: number;
+  maxStreak: number;
+  bestReaction: number | null;
+  totalMatches: number;
+  winRate: number;
+}
+
+export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
+  const data = await apiFetch('/stats/leaderboard');
+  return data.leaderboard;
+}

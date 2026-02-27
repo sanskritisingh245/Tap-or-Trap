@@ -73,16 +73,27 @@ router.get('/:id/state', (req, res) => {
       const isWinner = match.winner === wallet;
       const isPlayerOne = match.player_one === wallet;
       const myReaction = isPlayerOne ? match.player_one_reaction_ms : match.player_two_reaction_ms;
+      const opponentReaction = isPlayerOne ? match.player_two_reaction_ms : match.player_one_reaction_ms;
       const opponent = isPlayerOne ? match.player_two : match.player_one;
+
+      // Include player stats for result display
+      const playerStats = db.prepare(
+        'SELECT current_streak, max_streak, best_reaction_ms, wins, losses FROM players WHERE wallet = ?'
+      ).get(wallet);
 
       return res.json({
         phase: 'result',
         winner: match.winner,
         won: isWinner,
         reaction: myReaction,
+        opponentReaction,
         opponent,
         forfeitReason: match.forfeit_reason,
-        // Commit-reveal: client can verify draw timing
+        currentStreak: playerStats?.current_streak || 0,
+        maxStreak: playerStats?.max_streak || 0,
+        bestReaction: playerStats?.best_reaction_ms,
+        wins: playerStats?.wins || 0,
+        losses: playerStats?.losses || 0,
         drawSecret: match.draw_secret,
         drawTime: match.draw_time_ms,
         commitment: match.draw_commitment,

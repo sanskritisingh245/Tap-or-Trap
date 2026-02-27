@@ -30,10 +30,19 @@ db.pragma('foreign_keys = ON');
 const schema = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
 db.exec(schema);
 
-// Migrate: add credits column if missing (existing DBs)
-try {
-  db.exec('ALTER TABLE players ADD COLUMN credits INTEGER NOT NULL DEFAULT 5');
-} catch (_) { /* column already exists */ }
+// Migrations: add columns if missing (existing DBs)
+const migrations = [
+  'ALTER TABLE players ADD COLUMN credits INTEGER NOT NULL DEFAULT 5',
+  'ALTER TABLE players ADD COLUMN wins INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE players ADD COLUMN losses INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE players ADD COLUMN current_streak INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE players ADD COLUMN max_streak INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE players ADD COLUMN best_reaction_ms REAL',
+  'ALTER TABLE players ADD COLUMN total_matches INTEGER NOT NULL DEFAULT 0',
+];
+for (const sql of migrations) {
+  try { db.exec(sql); } catch (_) { /* column already exists */ }
+}
 
 // Make db available to routes
 app.locals.db = db;
@@ -42,9 +51,11 @@ app.locals.db = db;
 app.use('/auth', authRoutes);
 
 // Protected routes (require JWT)
+const statsRoutes = require('./routes/stats');
 app.use('/credits', authMiddleware, creditsRoutes);
 app.use('/matchmaking', authMiddleware, matchmakingRoutes);
 app.use('/match', authMiddleware, matchRoutes);
+app.use('/stats', authMiddleware, statsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
