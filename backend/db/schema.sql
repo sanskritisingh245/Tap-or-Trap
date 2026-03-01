@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS matches (
     forfeit_reason TEXT,              -- 'early_tap', 'timeout', 'disconnect'
     escrow_tx TEXT,                   -- deduct_credit tx signature
     settle_tx TEXT,                   -- settle_match tx signature
+    mode TEXT NOT NULL DEFAULT 'single',  -- 'single' or 'bo3'
+    series_id TEXT,                   -- links to series table for bo3
+    round_number INTEGER DEFAULT 1,
     created_at INTEGER NOT NULL,
     settled_at INTEGER
 );
@@ -35,12 +38,49 @@ CREATE TABLE IF NOT EXISTS players (
     current_streak INTEGER NOT NULL DEFAULT 0,
     max_streak INTEGER NOT NULL DEFAULT 0,
     best_reaction_ms REAL,
-    total_matches INTEGER NOT NULL DEFAULT 0
+    total_matches INTEGER NOT NULL DEFAULT 0,
+    xp INTEGER NOT NULL DEFAULT 0,
+    tier TEXT NOT NULL DEFAULT 'BRONZE',
+    last_login_date TEXT,
+    login_streak INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS daily_challenges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wallet TEXT NOT NULL,
+    challenge_type TEXT NOT NULL,
+    target INTEGER NOT NULL,
+    progress INTEGER NOT NULL DEFAULT 0,
+    completed INTEGER NOT NULL DEFAULT 0,
+    reward_xp INTEGER NOT NULL DEFAULT 0,
+    reward_credits INTEGER NOT NULL DEFAULT 0,
+    date TEXT NOT NULL,
+    UNIQUE(wallet, challenge_type, date)
+);
+
+CREATE TABLE IF NOT EXISTS achievements (
+    wallet TEXT NOT NULL,
+    achievement_id TEXT NOT NULL,
+    unlocked_at INTEGER NOT NULL,
+    PRIMARY KEY (wallet, achievement_id)
+);
+
+CREATE TABLE IF NOT EXISTS series (
+    id TEXT PRIMARY KEY,
+    player_one TEXT NOT NULL,
+    player_two TEXT NOT NULL,
+    score_one INTEGER NOT NULL DEFAULT 0,
+    score_two INTEGER NOT NULL DEFAULT 0,
+    mode TEXT NOT NULL DEFAULT 'bo3',
+    state TEXT NOT NULL DEFAULT 'ACTIVE',
+    winner TEXT,
+    created_at INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS queue (
     wallet TEXT PRIMARY KEY,
-    joined_at INTEGER NOT NULL
+    joined_at INTEGER NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'single'
 );
 
 CREATE TABLE IF NOT EXISTS rooms (

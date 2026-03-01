@@ -6,7 +6,7 @@ export const API_URL = __DEV__
   ? Platform.OS === 'android'
     ? 'http://10.0.2.2:3000'
     : 'http://localhost:3000'
-  : 'https://api.snapduel.app';
+  : 'https://api.taprush.app';
 
 // Solana config
 export const PROGRAM_ID = 'HKUeBck47FAtguvzH1oceCshmMSxgXqKHTnN2RmcTNsH';

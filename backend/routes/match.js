@@ -78,8 +78,13 @@ router.get('/:id/state', (req, res) => {
 
       // Include player stats for result display
       const playerStats = db.prepare(
-        'SELECT current_streak, max_streak, best_reaction_ms, wins, losses FROM players WHERE wallet = ?'
+        'SELECT current_streak, max_streak, best_reaction_ms, wins, losses, xp, tier FROM players WHERE wallet = ?'
       ).get(wallet);
+
+      // Check for newly unlocked achievements
+      const recentAchievements = db.prepare(
+        'SELECT achievement_id FROM achievements WHERE wallet = ? AND unlocked_at > ? ORDER BY unlocked_at DESC'
+      ).all(wallet, Date.now() - 10000);
 
       return res.json({
         phase: 'result',
@@ -94,6 +99,9 @@ router.get('/:id/state', (req, res) => {
         bestReaction: playerStats?.best_reaction_ms,
         wins: playerStats?.wins || 0,
         losses: playerStats?.losses || 0,
+        xp: playerStats?.xp || 0,
+        tier: playerStats?.tier || 'BRONZE',
+        newAchievements: recentAchievements.map(a => a.achievement_id),
         drawSecret: match.draw_secret,
         drawTime: match.draw_time_ms,
         commitment: match.draw_commitment,

@@ -17,15 +17,26 @@ import { RoomCreator } from '../components/RoomCreator';
 import { RoomJoiner } from '../components/RoomJoiner';
 import { CountdownReveal } from '../components/CountdownReveal';
 import { MatchHistory } from '../components/MatchHistory';
+import { Leaderboard } from '../components/Leaderboard';
+import { TierBadge } from '../components/TierBadge';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { getCreditsBalance, topUpCredits } from '../services/api';
 import { deriveUsername } from '../utils/username';
 import { fonts, palette } from '../theme/ui';
 
-type UIMode = 'lobby' | 'join_code' | 'history' | 'game';
+type UIMode = 'lobby' | 'join_code' | 'history' | 'leaderboard' | 'game';
 
-const WIN_TAUNTS = ['NASTY.', 'TOO FAST.', 'CLEAN WIN.'];
-const LOSE_TAUNTS = ['OOF.', 'ALMOST.', 'RUN IT BACK.'];
+const ACHIEVEMENT_LABELS: Record<string, string> = {
+  lightning: '⚡ LIGHTNING — Sub-150ms reaction!',
+  flash: '🔥 FLASH — Sub-100ms reaction!',
+  untouchable: '🛡 UNTOUCHABLE — 5 win streak!',
+  demon: '😈 DEMON — 10 win streak!',
+  veteran: '🎖 VETERAN — 50 matches played!',
+  centurion: '🏛 CENTURION — 100 matches played!',
+};
+
+const WIN_TAUNTS = ['NASTY.', 'TOO FAST.', 'CLEAN WIN.', 'ELITE.', 'DESTROYED.'];
+const LOSE_TAUNTS = ['OOF.', 'ALMOST.', 'RUN IT BACK.', 'NEXT TIME.', 'SO CLOSE.'];
 
 function pickTaunt(won: boolean): string {
   const list = won ? WIN_TAUNTS : LOSE_TAUNTS;
@@ -43,9 +54,11 @@ export default function GameScreen() {
   const [joinLoading, setJoinLoading] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
   const [taunt, setTaunt] = useState('');
+  const [achievementToast, setAchievementToast] = useState<string | null>(null);
 
   const pulse = useRef(new Animated.Value(1)).current;
   const drawPop = useRef(new Animated.Value(1)).current;
+  const toastOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const p = Animated.loop(
@@ -75,6 +88,16 @@ export default function GameScreen() {
     if (match.phase === 'result' && match.result) {
       setShowCountdown(true);
       setTaunt(pickTaunt(match.result.won));
+      // Show achievement toast if any
+      if (match.result.newAchievements.length > 0) {
+        const achId = match.result.newAchievements[0];
+        setAchievementToast(ACHIEVEMENT_LABELS[achId] || achId);
+        Animated.sequence([
+          Animated.timing(toastOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.delay(3000),
+          Animated.timing(toastOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+        ]).start(() => setAchievementToast(null));
+      }
     }
   }, [match.phase]);
 
@@ -95,12 +118,23 @@ export default function GameScreen() {
     }
   }, []);
 
+  // Achievement toast overlay
+  const renderAchievementToast = () => {
+    if (!achievementToast) return null;
+    return (
+      <Animated.View style={[styles.toast, { opacity: toastOpacity }]} pointerEvents="none">
+        <Text style={styles.toastTitle}>ACHIEVEMENT UNLOCKED</Text>
+        <Text style={styles.toastText}>{achievementToast}</Text>
+      </Animated.View>
+    );
+  };
+
   if (!wallet.connected) {
     return (
       <View style={styles.screen}>
         <AmbientBackground tone="cool" />
         <View style={styles.card}>
-          <Text style={styles.title}>SNAPDUEL</Text>
+          <Text style={styles.title}>TAPRUSH</Text>
           <TouchableOpacity
             style={styles.primaryBtn}
             onPress={async () => {
@@ -144,6 +178,8 @@ export default function GameScreen() {
   }
 
   if (uiMode === 'history') return <MatchHistory onBack={() => setUiMode('lobby')} />;
+  if (uiMode === 'leaderboard') return <Leaderboard onBack={() => setUiMode('lobby')} />;
+
   if (match.phase === 'waiting_room' && match.roomCode) {
     return (
       <RoomCreator
@@ -229,12 +265,16 @@ export default function GameScreen() {
   if (match.phase === 'result' && match.result) {
     if (showCountdown) return <CountdownReveal onComplete={() => setShowCountdown(false)} />;
 
-    const { won, reaction, opponentReaction, opponent, currentStreak, bestReaction } = match.result;
+    const { won, reaction, opponentReaction, opponent, currentStreak, bestReaction, tier } = match.result;
     return (
       <View style={styles.screen}>
         <AmbientBackground tone={won ? 'cool' : 'danger'} />
+        {renderAchievementToast()}
         <View style={[styles.card, won ? styles.resultWin : styles.resultLose]}>
-          <Text style={styles.title}>{won ? 'WIN' : 'LOSE'}</Text>
+          <View style={styles.resultHeader}>
+            <Text style={styles.title}>{won ? 'WIN' : 'LOSE'}</Text>
+            <TierBadge tier={tier} size="small" />
+          </View>
           <Text style={styles.taunt}>{taunt}</Text>
           <Text style={styles.vs}>{deriveUsername(opponent || '')}</Text>
 
@@ -249,8 +289,8 @@ export default function GameScreen() {
             </View>
           </View>
 
-          {won && currentStreak >= 2 ? <Text style={styles.good}>{currentStreak}x STREAK</Text> : null}
-          {bestReaction !== null && reaction !== null && reaction > 0 && reaction <= bestReaction ? <Text style={styles.good}>NEW PB</Text> : null}
+          {won && currentStreak >= 2 ? <Text style={styles.good}>{currentStreak}x STREAK 🔥</Text> : null}
+          {bestReaction !== null && reaction !== null && reaction > 0 && reaction <= bestReaction ? <Text style={styles.good}>NEW PB ⚡</Text> : null}
 
           <TouchableOpacity
             style={styles.primaryBtn}
@@ -328,6 +368,7 @@ export default function GameScreen() {
       }}
       onJoinWithCode={() => setUiMode('join_code')}
       onViewHistory={() => setUiMode('history')}
+      onViewLeaderboard={() => setUiMode('leaderboard')}
       onTopUp={async () => {
         try {
           const b = await topUpCredits();
@@ -342,45 +383,26 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg, justifyContent: 'center', padding: 18 },
   card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panel,
-    padding: 18,
-    alignItems: 'center',
+    borderRadius: 18, borderWidth: 1, borderColor: palette.panelStroke,
+    backgroundColor: palette.panel, padding: 18, alignItems: 'center',
   },
   title: { color: palette.text, fontFamily: fonts.display, fontSize: 44, lineHeight: 46 },
   small: { marginTop: 8, fontSize: 40 },
   icon: { fontSize: 40, marginBottom: 10 },
   primaryBtn: {
-    marginTop: 12,
-    width: '100%',
-    borderRadius: 14,
-    backgroundColor: palette.primary,
-    paddingVertical: 14,
-    alignItems: 'center',
+    marginTop: 12, width: '100%', borderRadius: 14,
+    backgroundColor: palette.primary, paddingVertical: 14, alignItems: 'center',
   },
   primaryBtnText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 24, lineHeight: 26 },
   secondaryBtn: {
-    marginTop: 8,
-    width: '100%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.bgAlt,
-    paddingVertical: 11,
-    alignItems: 'center',
+    marginTop: 8, width: '100%', borderRadius: 12, borderWidth: 1,
+    borderColor: palette.panelStroke, backgroundColor: palette.bgAlt,
+    paddingVertical: 11, alignItems: 'center',
   },
   secondaryText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
   meterTrack: {
-    marginTop: 4,
-    width: '100%',
-    height: 18,
-    borderRadius: 10,
-    backgroundColor: palette.bgAlt,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
-    overflow: 'hidden',
+    marginTop: 4, width: '100%', height: 18, borderRadius: 10,
+    backgroundColor: palette.bgAlt, borderWidth: 1, borderColor: palette.panelStroke, overflow: 'hidden',
   },
   meterFill: { height: '100%', width: '100%' },
   meterGood: { backgroundColor: palette.success },
@@ -390,19 +412,22 @@ const styles = StyleSheet.create({
   drawTitle: { color: palette.text, fontFamily: fonts.display, fontSize: 120, lineHeight: 122 },
   taunt: { marginTop: 2, color: palette.muted, fontFamily: fonts.mono, fontSize: 12 },
   vs: { marginTop: 8, color: palette.muted, fontFamily: fonts.body, fontSize: 15 },
+  resultHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   scoreRow: { marginTop: 8, width: '100%', flexDirection: 'row', gap: 8 },
   scoreCol: {
-    flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft,
-    paddingVertical: 8,
-    alignItems: 'center',
+    flex: 1, borderRadius: 10, borderWidth: 1, borderColor: palette.panelStroke,
+    backgroundColor: palette.panelSoft, paddingVertical: 8, alignItems: 'center',
   },
   scoreTag: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10 },
   score: { color: palette.text, fontFamily: fonts.display, fontSize: 23 },
   good: { marginTop: 6, color: palette.success, fontFamily: fonts.mono, fontSize: 12 },
   resultWin: { borderColor: 'rgba(142, 242, 138, 0.5)' },
   resultLose: { borderColor: 'rgba(255, 125, 157, 0.5)' },
+  toast: {
+    position: 'absolute', top: 60, left: 18, right: 18, zIndex: 100,
+    borderRadius: 12, backgroundColor: 'rgba(153, 69, 255, 0.9)',
+    padding: 14, alignItems: 'center',
+  },
+  toastTitle: { color: '#fff', fontFamily: fonts.mono, fontSize: 10, marginBottom: 4 },
+  toastText: { color: '#fff', fontFamily: fonts.display, fontSize: 16, textAlign: 'center' },
 });

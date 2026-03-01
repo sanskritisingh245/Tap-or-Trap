@@ -39,6 +39,14 @@ const migrations = [
   'ALTER TABLE players ADD COLUMN max_streak INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE players ADD COLUMN best_reaction_ms REAL',
   'ALTER TABLE players ADD COLUMN total_matches INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE players ADD COLUMN xp INTEGER NOT NULL DEFAULT 0',
+  "ALTER TABLE players ADD COLUMN tier TEXT NOT NULL DEFAULT 'BRONZE'",
+  'ALTER TABLE players ADD COLUMN last_login_date TEXT',
+  'ALTER TABLE players ADD COLUMN login_streak INTEGER NOT NULL DEFAULT 0',
+  "ALTER TABLE matches ADD COLUMN mode TEXT NOT NULL DEFAULT 'single'",
+  'ALTER TABLE matches ADD COLUMN series_id TEXT',
+  'ALTER TABLE matches ADD COLUMN round_number INTEGER DEFAULT 1',
+  "ALTER TABLE queue ADD COLUMN mode TEXT NOT NULL DEFAULT 'single'",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch (_) { /* column already exists */ }
@@ -52,10 +60,12 @@ app.use('/auth', authRoutes);
 
 // Protected routes (require JWT)
 const statsRoutes = require('./routes/stats');
+const dailyRoutes = require('./routes/daily');
 app.use('/credits', authMiddleware, creditsRoutes);
 app.use('/matchmaking', authMiddleware, matchmakingRoutes);
 app.use('/match', authMiddleware, matchRoutes);
 app.use('/stats', authMiddleware, statsRoutes);
+app.use('/daily', authMiddleware, dailyRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -68,7 +78,7 @@ startCleanupJob(db);
 
 // Listen on 0.0.0.0 so other devices on the LAN can connect
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`SnapDuel backend running on 0.0.0.0:${PORT}`);
+  console.log(`TapRush backend running on 0.0.0.0:${PORT}`);
   const os = require('os');
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {

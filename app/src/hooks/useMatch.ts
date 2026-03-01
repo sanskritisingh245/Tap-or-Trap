@@ -29,6 +29,9 @@ export interface MatchResult {
   bestReaction: number | null;
   wins: number;
   losses: number;
+  xp: number;
+  tier: string;
+  newAchievements: string[];
 }
 
 /**
@@ -96,6 +99,9 @@ export function useMatch() {
             bestReaction: data.bestReaction ?? null,
             wins: data.wins ?? 0,
             losses: data.losses ?? 0,
+            xp: data.xp ?? 0,
+            tier: data.tier ?? 'BRONZE',
+            newAchievements: data.newAchievements ?? [],
           });
           setPhase('result');
           break;

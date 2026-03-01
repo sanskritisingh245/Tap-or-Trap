@@ -184,6 +184,8 @@ export async function sendReady(matchId: string): Promise<any> {
 
 // ─── Stats ───────────────────────────────────────────────────────
 
+export type Tier = 'BRONZE' | 'SILVER' | 'GOLD' | 'DIAMOND' | 'PHANTOM';
+
 export interface PlayerStats {
   wins: number;
   losses: number;
@@ -192,6 +194,11 @@ export interface PlayerStats {
   bestReaction: number | null;
   totalMatches: number;
   winRate: number;
+  xp: number;
+  tier: Tier;
+  xpToNext: number;
+  nextTier: Tier | null;
+  xpThreshold: number;
 }
 
 export interface MatchHistoryEntry {
@@ -223,9 +230,41 @@ export interface LeaderboardEntry {
   bestReaction: number | null;
   totalMatches: number;
   winRate: number;
+  xp: number;
+  tier: Tier;
 }
 
-export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  const data = await apiFetch('/stats/leaderboard');
-  return data.leaderboard;
+export async function getLeaderboard(timeframe: 'today' | 'week' | 'all' = 'all'): Promise<{ leaderboard: LeaderboardEntry[]; myRank: number | null }> {
+  return apiFetch(`/stats/leaderboard?timeframe=${timeframe}`);
+}
+
+export interface Achievement {
+  achievement_id: string;
+  unlocked_at: number;
+}
+
+export async function getAchievements(): Promise<Achievement[]> {
+  const data = await apiFetch('/stats/achievements');
+  return data.achievements;
+}
+
+// ─── Daily ──────────────────────────────────────────────────────
+
+export interface DailyChallenge {
+  id: number;
+  type: string;
+  label: string;
+  target: number;
+  progress: number;
+  completed: boolean;
+  rewardXp: number;
+  rewardCredits: number;
+}
+
+export async function getDailyChallenges(): Promise<{ challenges: DailyChallenge[]; date: string }> {
+  return apiFetch('/daily/challenges');
+}
+
+export async function claimDailyLogin(): Promise<{ alreadyClaimed: boolean; streak: number; reward: number }> {
+  return apiFetch('/daily/claim-login', { method: 'POST' });
 }

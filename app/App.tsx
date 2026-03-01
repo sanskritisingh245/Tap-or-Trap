@@ -7,7 +7,7 @@ export default function App() {
   if (Platform.OS === 'web') {
     return (
       <View style={styles.blocked}>
-        <Text style={styles.blockedKicker}>SNAPDUEL</Text>
+        <Text style={styles.blockedKicker}>TAPRUSH</Text>
         <Text style={styles.blockedTitle}>Mobile Device Required</Text>
         <Text style={styles.blockedText}>Open the app on iOS or Android to play motion-powered duels.</Text>
       </View>
