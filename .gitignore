@@ -20,12 +20,18 @@ program/target/
 .env
 .env.local
 
+# Secrets / keypairs
+backend/solana/backend-keypair.json
+
 # Expo
 .expo/
 
 # IDE
 .idea/
 .vscode/
+
+# Embedded repos
+solscan-react-native/
 
 # Logs
 *.log

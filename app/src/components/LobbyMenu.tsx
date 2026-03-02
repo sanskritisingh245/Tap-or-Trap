@@ -4,7 +4,7 @@ import { AmbientBackground } from './AmbientBackground';
 import { StatsBar } from './StatsBar';
 import { TierBadge, getTierColor } from './TierBadge';
 import { DailyChallenges } from './DailyChallenges';
-import { fonts, palette } from '../theme/ui';
+import { fonts, palette, fs } from '../theme/ui';
 import { getPlayerStats, claimDailyLogin, PlayerStats } from '../services/api';
 
 interface LobbyMenuProps {
@@ -16,6 +16,7 @@ interface LobbyMenuProps {
   onRefreshCredits: () => Promise<number>;
   onViewHistory: () => void;
   onViewLeaderboard: () => void;
+  onBack?: () => void;
   walletAddress: string;
 }
 
@@ -28,6 +29,7 @@ export function LobbyMenu({
   onRefreshCredits,
   onViewHistory,
   onViewLeaderboard,
+  onBack,
   walletAddress,
 }: LobbyMenuProps) {
   const [stats, setStats] = useState<PlayerStats | null>(null);
@@ -65,6 +67,11 @@ export function LobbyMenu({
       <AmbientBackground tone="cool" />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.head}>
+          {onBack && (
+            <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+              <Text style={styles.backText}>←</Text>
+            </TouchableOpacity>
+          )}
           <Text style={styles.logo}>TAPRUSH</Text>
           <View style={styles.headRight}>
             {stats && <TierBadge tier={stats.tier} />}
@@ -169,55 +176,61 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.bg },
   scroll: { paddingTop: 58, paddingHorizontal: 18, paddingBottom: 28 },
   head: {
-    borderRadius: 16, borderWidth: 1, borderColor: palette.panelStroke,
-    backgroundColor: palette.panel, padding: 14, marginBottom: 10,
+    borderRadius: 20, borderWidth: 0,
+    backgroundColor: palette.panel, padding: 16, marginBottom: 12,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2,
   },
-  logo: { color: palette.text, fontFamily: fonts.display, fontSize: 28, lineHeight: 30 },
+  backBtn: { marginRight: 8, paddingHorizontal: 4 },
+  backText: { color: palette.muted, fontSize: fs(22) },
+  logo: { color: palette.text, fontFamily: fonts.display, fontSize: fs(28), lineHeight: 30 },
   headRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  wallet: { color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
+  wallet: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(11) },
   xpCard: {
-    borderRadius: 12, borderWidth: 1, borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft, padding: 10, marginBottom: 10,
+    borderRadius: 16, borderWidth: 0,
+    backgroundColor: palette.panelSoft, padding: 12, marginBottom: 10,
   },
   xpHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  xpLabel: { color: palette.text, fontFamily: fonts.mono, fontSize: 12 },
-  xpNext: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10 },
+  xpLabel: { color: palette.text, fontFamily: fonts.mono, fontSize: fs(12) },
+  xpNext: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(10) },
   xpTrack: {
     height: 8, borderRadius: 4, backgroundColor: palette.bgAlt, overflow: 'hidden',
   },
   xpFill: { height: '100%', borderRadius: 4 },
   loginBanner: {
-    borderRadius: 10, backgroundColor: 'rgba(255, 198, 107, 0.15)',
-    borderWidth: 1, borderColor: 'rgba(255, 198, 107, 0.3)',
-    paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10, alignItems: 'center',
+    borderRadius: 14, backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 0,
+    paddingVertical: 10, paddingHorizontal: 14, marginBottom: 10, alignItems: 'center',
   },
-  loginText: { color: palette.warning, fontFamily: fonts.body, fontSize: 13 },
+  loginText: { color: palette.warning, fontFamily: fonts.body, fontSize: fs(13) },
   creditCard: {
-    borderRadius: 16, borderWidth: 1, borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft, alignItems: 'center', paddingVertical: 12, marginBottom: 10,
+    borderRadius: 20, borderWidth: 0,
+    backgroundColor: 'rgba(255, 45, 111, 0.1)', alignItems: 'center', paddingVertical: 14, marginBottom: 10,
+    shadowColor: palette.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 2,
   },
-  creditLabel: { color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
-  credit: { color: palette.success, fontFamily: fonts.display, fontSize: 44, lineHeight: 46 },
+  creditLabel: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(11) },
+  credit: { color: palette.primaryStrong, fontFamily: fonts.display, fontSize: fs(44), lineHeight: 46 },
   creditLow: { color: palette.danger },
   quickRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    borderRadius: 12, borderWidth: 1, borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10,
+    borderRadius: 16, borderWidth: 0,
+    backgroundColor: palette.panelSoft, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10,
   },
-  quick: { color: palette.text, fontFamily: fonts.body, fontSize: 13 },
+  quick: { color: palette.text, fontFamily: fonts.body, fontSize: fs(13) },
   bigBtn: {
-    borderRadius: 16, backgroundColor: palette.primary,
+    borderRadius: 24, backgroundColor: palette.primaryStrong,
     paddingVertical: 20, alignItems: 'center', marginBottom: 10,
+    shadowColor: palette.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
   refillBtn: { backgroundColor: palette.warning },
-  bigBtnText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 34, lineHeight: 36 },
+  bigBtnText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: fs(34), lineHeight: 36 },
   smallGrid: { flexDirection: 'row', gap: 8 },
   smallBtn: {
-    flex: 1, borderRadius: 14, borderWidth: 1,
-    borderColor: palette.panelStroke, backgroundColor: palette.panel,
+    flex: 1, borderRadius: 16, borderWidth: 0,
+    backgroundColor: palette.panel,
     paddingVertical: 12, alignItems: 'center',
+    shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 1,
   },
-  smallIcon: { fontSize: 20, marginBottom: 3 },
-  smallText: { color: palette.text, fontFamily: fonts.mono, fontSize: 11 },
+  smallIcon: { fontSize: fs(20), marginBottom: 3 },
+  smallText: { color: palette.text, fontFamily: fonts.mono, fontSize: fs(11) },
 });

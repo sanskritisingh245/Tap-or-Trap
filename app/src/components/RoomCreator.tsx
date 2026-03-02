@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { AmbientBackground } from './AmbientBackground';
-import { fonts, palette } from '../theme/ui';
+import { fonts, palette, fs } from '../theme/ui';
 
 interface RoomCreatorProps {
   roomCode: string;
@@ -42,35 +42,33 @@ export function RoomCreator({ roomCode, onCancel }: RoomCreatorProps) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.bg, justifyContent: 'center', padding: 18 },
   card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
+    borderRadius: 22,
+    borderWidth: 0,
     backgroundColor: palette.panel,
-    padding: 18,
+    padding: 22,
     alignItems: 'center',
+    shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 4,
   },
-  head: { color: palette.warning, fontFamily: fonts.mono, fontSize: 12, letterSpacing: 1.2 },
+  head: { color: palette.warning, fontFamily: fonts.mono, fontSize: fs(12), letterSpacing: 1.2 },
   codeCard: {
-    marginTop: 10,
+    marginTop: 12,
     width: '100%',
-    borderRadius: 14,
-    backgroundColor: 'rgba(73, 51, 18, 0.45)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 198, 107, 0.5)',
+    borderRadius: 18,
+    backgroundColor: palette.panelSoft,
+    borderWidth: 0,
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 18,
   },
-  code: { color: palette.warning, fontFamily: fonts.mono, fontSize: 46, letterSpacing: 8 },
-  wait: { marginTop: 12, color: palette.text, fontFamily: fonts.body, fontSize: 16 },
+  code: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: fs(46), letterSpacing: 8 },
+  wait: { marginTop: 12, color: palette.text, fontFamily: fonts.body, fontSize: fs(16) },
   cancel: {
     marginTop: 14,
     width: '100%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 125, 157, 0.55)',
-    backgroundColor: 'rgba(74, 23, 41, 0.55)',
+    borderRadius: 20,
+    borderWidth: 0,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     paddingVertical: 12,
     alignItems: 'center',
   },
-  cancelText: { color: palette.danger, fontFamily: fonts.display, fontSize: 18 },
+  cancelText: { color: palette.danger, fontFamily: fonts.display, fontSize: fs(18) },
 });

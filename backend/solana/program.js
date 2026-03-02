@@ -194,16 +194,106 @@ async function cancelMatchOnChain(playerOneWallet, playerTwoWallet, matchId) {
   return tx;
 }
 
+// PDA for game commitment
+function findCommitment(gameIdBytes) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('commitment'), Buffer.from(gameIdBytes)],
+    PROGRAM_ID
+  );
+}
+
+/**
+ * Converts a hex seed hash string to 32-byte array.
+ */
+function hexToBytes32(hex) {
+  const bytes = [];
+  const clean = hex.slice(0, 64).padEnd(64, '0');
+  for (let i = 0; i < 64; i += 2) {
+    bytes.push(parseInt(clean.substr(i, 2), 16));
+  }
+  return bytes;
+}
+
+/**
+ * Commits a seed hash on-chain before game round starts.
+ * gameId: UUID string, seedHash: hex string, gameType: 0-3
+ */
+async function commitSeedOnChain(gameId, seedHash, gameType) {
+  const { program, backendKeypair } = getProgram();
+  if (!program) {
+    console.warn('[OnChain] Program not loaded — stubbing commit_seed');
+    return 'stub-commit-tx';
+  }
+
+  try {
+    const gameIdBytes = hexToBytes32(gameId.replace(/-/g, ''));
+    const seedHashBytes = hexToBytes32(seedHash);
+    const [commitmentPDA] = findCommitment(gameIdBytes);
+
+    const tx = await program.methods
+      .commitSeed(gameIdBytes, seedHashBytes, gameType)
+      .accounts({
+        authority: backendKeypair.publicKey,
+        commitment: commitmentPDA,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([backendKeypair])
+      .rpc();
+
+    console.log(`[OnChain] Seed committed: ${tx}`);
+    return tx;
+  } catch (err) {
+    console.warn(`[OnChain] commit_seed failed: ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Reveals the server seed on-chain after game round ends.
+ */
+async function revealSeedOnChain(gameId, serverSeed) {
+  const { program, backendKeypair } = getProgram();
+  if (!program) {
+    console.warn('[OnChain] Program not loaded — stubbing reveal_seed');
+    return 'stub-reveal-tx';
+  }
+
+  try {
+    const gameIdBytes = hexToBytes32(gameId.replace(/-/g, ''));
+    const serverSeedBytes = hexToBytes32(serverSeed);
+    const [commitmentPDA] = findCommitment(gameIdBytes);
+
+    const tx = await program.methods
+      .revealSeed(serverSeedBytes)
+      .accounts({
+        authority: backendKeypair.publicKey,
+        commitment: commitmentPDA,
+      })
+      .signers([backendKeypair])
+      .rpc();
+
+    console.log(`[OnChain] Seed revealed: ${tx}`);
+    return tx;
+  } catch (err) {
+    console.warn(`[OnChain] reveal_seed failed: ${err.message}`);
+    return null;
+  }
+}
+
 module.exports = {
   getProgram,
   getPlayerCredits,
   deductCredits,
   settleMatchOnChain,
   cancelMatchOnChain,
+  commitSeedOnChain,
+  revealSeedOnChain,
   findTreasury,
   findPlayerCredits,
   findMatchEscrow,
   findLeaderboard,
+  findCommitment,
   uuidToBytes,
+  hexToBytes32,
   PROGRAM_ID,
 };

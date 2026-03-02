@@ -22,7 +22,7 @@ import { TierBadge } from '../components/TierBadge';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { getCreditsBalance, topUpCredits } from '../services/api';
 import { deriveUsername } from '../utils/username';
-import { fonts, palette } from '../theme/ui';
+import { fonts, palette, fs } from '../theme/ui';
 
 type UIMode = 'lobby' | 'join_code' | 'history' | 'leaderboard' | 'game';
 
@@ -43,7 +43,7 @@ function pickTaunt(won: boolean): string {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-export default function GameScreen() {
+export default function GameScreen({ onBack }: { onBack?: () => void }) {
   const wallet = useWallet();
   const match = useMatch();
   const { isStill } = useAccelerometer(match.phase === 'standoff');
@@ -350,6 +350,7 @@ export default function GameScreen() {
     <LobbyMenu
       playsRemaining={credits}
       walletAddress={wallet.publicKey || ''}
+      onBack={onBack}
       onFindRandom={async () => {
         try {
           setUiMode('game');
@@ -383,23 +384,25 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg, justifyContent: 'center', padding: 18 },
   card: {
-    borderRadius: 18, borderWidth: 1, borderColor: palette.panelStroke,
-    backgroundColor: palette.panel, padding: 18, alignItems: 'center',
+    borderRadius: 22, borderWidth: 0,
+    backgroundColor: palette.panel, padding: 22, alignItems: 'center',
+    shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 4,
   },
-  title: { color: palette.text, fontFamily: fonts.display, fontSize: 44, lineHeight: 46 },
-  small: { marginTop: 8, fontSize: 40 },
-  icon: { fontSize: 40, marginBottom: 10 },
+  title: { color: palette.text, fontFamily: fonts.display, fontSize: fs(44), lineHeight: 46 },
+  small: { marginTop: 8, fontSize: fs(40) },
+  icon: { fontSize: fs(40), marginBottom: 10 },
   primaryBtn: {
-    marginTop: 12, width: '100%', borderRadius: 14,
-    backgroundColor: palette.primary, paddingVertical: 14, alignItems: 'center',
+    marginTop: 12, width: '100%', borderRadius: 24,
+    backgroundColor: palette.primaryStrong, paddingVertical: 14, alignItems: 'center',
+    shadowColor: palette.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
   },
-  primaryBtnText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 24, lineHeight: 26 },
+  primaryBtnText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: fs(24), lineHeight: 26 },
   secondaryBtn: {
-    marginTop: 8, width: '100%', borderRadius: 12, borderWidth: 1,
-    borderColor: palette.panelStroke, backgroundColor: palette.bgAlt,
+    marginTop: 8, width: '100%', borderRadius: 20, borderWidth: 0,
+    backgroundColor: palette.panelSoft,
     paddingVertical: 11, alignItems: 'center',
   },
-  secondaryText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  secondaryText: { color: palette.muted, fontFamily: fonts.body, fontSize: fs(14) },
   meterTrack: {
     marginTop: 4, width: '100%', height: 18, borderRadius: 10,
     backgroundColor: palette.bgAlt, borderWidth: 1, borderColor: palette.panelStroke, overflow: 'hidden',
@@ -407,27 +410,27 @@ const styles = StyleSheet.create({
   meterFill: { height: '100%', width: '100%' },
   meterGood: { backgroundColor: palette.success },
   meterBad: { backgroundColor: palette.danger },
-  meterLabel: { marginTop: 8, color: palette.text, fontFamily: fonts.display, fontSize: 28 },
-  drawScreen: { flex: 1, backgroundColor: '#2C0F1A', justifyContent: 'center', alignItems: 'center' },
-  drawTitle: { color: palette.text, fontFamily: fonts.display, fontSize: 120, lineHeight: 122 },
-  taunt: { marginTop: 2, color: palette.muted, fontFamily: fonts.mono, fontSize: 12 },
-  vs: { marginTop: 8, color: palette.muted, fontFamily: fonts.body, fontSize: 15 },
+  meterLabel: { marginTop: 8, color: palette.text, fontFamily: fonts.display, fontSize: fs(28) },
+  drawScreen: { flex: 1, backgroundColor: 'rgba(255, 45, 111, 0.1)', justifyContent: 'center', alignItems: 'center' },
+  drawTitle: { color: palette.text, fontFamily: fonts.display, fontSize: fs(120), lineHeight: 122 },
+  taunt: { marginTop: 2, color: palette.muted, fontFamily: fonts.mono, fontSize: fs(12) },
+  vs: { marginTop: 8, color: palette.muted, fontFamily: fonts.body, fontSize: fs(15) },
   resultHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   scoreRow: { marginTop: 8, width: '100%', flexDirection: 'row', gap: 8 },
   scoreCol: {
-    flex: 1, borderRadius: 10, borderWidth: 1, borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft, paddingVertical: 8, alignItems: 'center',
+    flex: 1, borderRadius: 14, borderWidth: 0,
+    backgroundColor: palette.panelSoft, paddingVertical: 10, alignItems: 'center',
   },
-  scoreTag: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10 },
-  score: { color: palette.text, fontFamily: fonts.display, fontSize: 23 },
-  good: { marginTop: 6, color: palette.success, fontFamily: fonts.mono, fontSize: 12 },
-  resultWin: { borderColor: 'rgba(142, 242, 138, 0.5)' },
-  resultLose: { borderColor: 'rgba(255, 125, 157, 0.5)' },
+  scoreTag: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(10) },
+  score: { color: palette.text, fontFamily: fonts.display, fontSize: fs(23) },
+  good: { marginTop: 6, color: palette.success, fontFamily: fonts.mono, fontSize: fs(12) },
+  resultWin: { borderColor: 'rgba(34, 197, 94, 0.4)' },
+  resultLose: { borderColor: 'rgba(239, 68, 68, 0.4)' },
   toast: {
     position: 'absolute', top: 60, left: 18, right: 18, zIndex: 100,
-    borderRadius: 12, backgroundColor: 'rgba(153, 69, 255, 0.9)',
+    borderRadius: 16, backgroundColor: 'rgba(255, 45, 111, 0.95)',
     padding: 14, alignItems: 'center',
   },
-  toastTitle: { color: '#fff', fontFamily: fonts.mono, fontSize: 10, marginBottom: 4 },
-  toastText: { color: '#fff', fontFamily: fonts.display, fontSize: 16, textAlign: 'center' },
+  toastTitle: { color: '#fff', fontFamily: fonts.mono, fontSize: fs(10), marginBottom: 4 },
+  toastText: { color: '#fff', fontFamily: fonts.display, fontSize: fs(16), textAlign: 'center' },
 });

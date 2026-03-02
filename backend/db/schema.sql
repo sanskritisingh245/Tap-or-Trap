@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS players (
     nonce_expires INTEGER,
     avg_rtt_ms REAL DEFAULT 100,
     last_seen INTEGER,
-    credits INTEGER NOT NULL DEFAULT 5,
+    credits INTEGER NOT NULL DEFAULT 100,
     wins INTEGER NOT NULL DEFAULT 0,
     losses INTEGER NOT NULL DEFAULT 0,
     current_streak INTEGER NOT NULL DEFAULT 0,
@@ -81,6 +81,44 @@ CREATE TABLE IF NOT EXISTS queue (
     wallet TEXT PRIMARY KEY,
     joined_at INTEGER NOT NULL,
     mode TEXT NOT NULL DEFAULT 'single'
+);
+
+CREATE TABLE IF NOT EXISTS game_bets (
+    id TEXT PRIMARY KEY,
+    wallet TEXT NOT NULL,
+    game_type TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    payout INTEGER DEFAULT 0,
+    won INTEGER,
+    result TEXT,
+    server_seed TEXT,
+    client_seed TEXT,
+    nonce INTEGER,
+    seed_hash TEXT,
+    state TEXT DEFAULT 'resolved',
+    mines_revealed TEXT,
+    mine_count INTEGER,
+    created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS crash_rounds (
+    id TEXT PRIMARY KEY,
+    crash_point REAL NOT NULL,
+    server_seed TEXT,
+    seed_hash TEXT NOT NULL,
+    state TEXT DEFAULT 'betting',
+    started_at INTEGER,
+    crashed_at INTEGER,
+    created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS crash_players (
+    round_id TEXT NOT NULL,
+    wallet TEXT NOT NULL,
+    bet_amount INTEGER NOT NULL,
+    cashed_out_at REAL,
+    payout INTEGER DEFAULT 0,
+    PRIMARY KEY (round_id, wallet)
 );
 
 CREATE TABLE IF NOT EXISTS rooms (

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { AmbientBackground } from './AmbientBackground';
-import { fonts, palette } from '../theme/ui';
+import { fonts, palette, fs } from '../theme/ui';
 
 interface CountdownRevealProps {
   onComplete: () => void;
@@ -31,5 +31,5 @@ export function CountdownReveal({ onComplete }: CountdownRevealProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.bg },
-  num: { color: palette.text, fontFamily: fonts.display, fontSize: 140, lineHeight: 142 },
+  num: { color: palette.text, fontFamily: fonts.display, fontSize: fs(140), lineHeight: 142 },
 });

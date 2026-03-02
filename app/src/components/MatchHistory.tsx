@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { AmbientBackground } from './AmbientBackground';
-import { fonts, palette } from '../theme/ui';
+import { fonts, palette, fs } from '../theme/ui';
 import { getMatchHistory, MatchHistoryEntry } from '../services/api';
 import { deriveUsername } from '../utils/username';
 
@@ -102,26 +102,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   back: {
-    color: palette.primary,
+    color: palette.primaryStrong,
     fontFamily: fonts.body,
-    fontSize: 16,
+    fontSize: fs(16),
   },
   title: {
     color: palette.text,
     fontFamily: fonts.display,
-    fontSize: 24,
+    fontSize: fs(24),
   },
   list: {
     paddingHorizontal: 18,
     paddingBottom: 32,
   },
   card: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
+    borderRadius: 18,
+    borderWidth: 0,
     backgroundColor: palette.panel,
-    padding: 14,
-    marginBottom: 9,
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 1,
   },
   rowTop: {
     flexDirection: 'row',
@@ -130,18 +130,18 @@ const styles = StyleSheet.create({
   },
   result: {
     fontFamily: fonts.mono,
-    fontSize: 12,
+    fontSize: fs(12),
   },
   time: {
     color: palette.muted,
     fontFamily: fonts.mono,
-    fontSize: 11,
+    fontSize: fs(11),
   },
   opp: {
     marginTop: 5,
     color: palette.text,
     fontFamily: fonts.body,
-    fontSize: 15,
+    fontSize: fs(15),
   },
   rowData: {
     flexDirection: 'row',
@@ -151,13 +151,13 @@ const styles = StyleSheet.create({
   data: {
     color: palette.muted,
     fontFamily: fonts.mono,
-    fontSize: 12,
+    fontSize: fs(12),
   },
   forfeit: {
     marginTop: 7,
     color: palette.danger,
     fontFamily: fonts.body,
-    fontSize: 13,
+    fontSize: fs(13),
   },
   empty: {
     alignItems: 'center',
@@ -167,12 +167,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: palette.text,
     fontFamily: fonts.display,
-    fontSize: 26,
+    fontSize: fs(26),
   },
   emptySub: {
     marginTop: 6,
     color: palette.muted,
     fontFamily: fonts.body,
-    fontSize: 14,
+    fontSize: fs(14),
   },
 });

@@ -32,7 +32,7 @@ db.exec(schema);
 
 // Migrations: add columns if missing (existing DBs)
 const migrations = [
-  'ALTER TABLE players ADD COLUMN credits INTEGER NOT NULL DEFAULT 5',
+  'ALTER TABLE players ADD COLUMN credits INTEGER NOT NULL DEFAULT 100',
   'ALTER TABLE players ADD COLUMN wins INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE players ADD COLUMN losses INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE players ADD COLUMN current_streak INTEGER NOT NULL DEFAULT 0',
@@ -66,6 +66,8 @@ app.use('/matchmaking', authMiddleware, matchmakingRoutes);
 app.use('/match', authMiddleware, matchRoutes);
 app.use('/stats', authMiddleware, statsRoutes);
 app.use('/daily', authMiddleware, dailyRoutes);
+const gameRoutes = require('./routes/games');
+app.use('/games', authMiddleware, gameRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -75,6 +77,8 @@ app.get('/health', (req, res) => {
 // Start background services
 startMatchmaker(db);
 startCleanupJob(db);
+const { startCrashEngine } = require('./services/crash-engine');
+startCrashEngine(db);
 
 // Listen on 0.0.0.0 so other devices on the LAN can connect
 app.listen(PORT, '0.0.0.0', () => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { fonts, palette } from '../theme/ui';
+import { fonts, palette, fs } from '../theme/ui';
 
 interface StatsBarProps {
   wins: number;
@@ -34,11 +34,10 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: palette.panelSoft,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
-    paddingVertical: 10,
+    borderWidth: 0,
+    paddingVertical: 12,
     marginBottom: 12,
   },
   stat: {
@@ -48,7 +47,7 @@ const styles = StyleSheet.create({
   value: {
     color: palette.text,
     fontFamily: fonts.display,
-    fontSize: 16,
+    fontSize: fs(16),
   },
   hot: {
     color: palette.warning,
@@ -57,6 +56,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
     color: palette.muted,
     fontFamily: fonts.mono,
-    fontSize: 10,
+    fontSize: fs(10),
   },
 });

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { AmbientBackground } from './AmbientBackground';
-import { fonts, palette } from '../theme/ui';
+import { fonts, palette, fs } from '../theme/ui';
 
 interface RoomJoinerProps {
   onJoin: (code: string) => void;
@@ -24,7 +24,7 @@ export function RoomJoiner({ onJoin, onCancel, error, loading }: RoomJoinerProps
           value={code}
           onChangeText={(t) => setCode(t.toUpperCase().slice(0, 6))}
           placeholder="A1B2C3"
-          placeholderTextColor="rgba(166, 179, 205, 0.55)"
+          placeholderTextColor="rgba(100, 116, 139, 0.55)"
           autoCorrect={false}
           autoCapitalize="characters"
           maxLength={6}
@@ -45,49 +45,49 @@ export function RoomJoiner({ onJoin, onCancel, error, loading }: RoomJoinerProps
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.bg, justifyContent: 'center', padding: 18 },
   card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
+    borderRadius: 22,
+    borderWidth: 0,
     backgroundColor: palette.panel,
-    padding: 18,
+    padding: 22,
     alignItems: 'center',
+    shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 4,
   },
-  head: { color: palette.primary, fontFamily: fonts.mono, fontSize: 12, letterSpacing: 1.2 },
+  head: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: fs(12), letterSpacing: 1.2 },
   input: {
     width: '100%',
-    marginTop: 10,
-    borderRadius: 12,
+    marginTop: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: palette.panelStroke,
-    backgroundColor: palette.bgAlt,
-    paddingVertical: 12,
+    backgroundColor: palette.panelSoft,
+    paddingVertical: 14,
     textAlign: 'center',
     color: palette.text,
     fontFamily: fonts.mono,
-    fontSize: 34,
+    fontSize: fs(34),
     letterSpacing: 8,
   },
-  inputReady: { borderColor: 'rgba(106, 245, 211, 0.6)' },
-  err: { marginTop: 8, color: palette.danger, fontFamily: fonts.body, fontSize: 13 },
+  inputReady: { borderColor: palette.primaryStrong },
+  err: { marginTop: 8, color: palette.danger, fontFamily: fonts.body, fontSize: fs(13) },
   join: {
-    marginTop: 10,
+    marginTop: 12,
     width: '100%',
-    borderRadius: 12,
-    backgroundColor: palette.primary,
+    borderRadius: 24,
+    backgroundColor: palette.primaryStrong,
     paddingVertical: 12,
     alignItems: 'center',
+    shadowColor: palette.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
   },
-  joinOff: { backgroundColor: 'rgba(121, 139, 177, 0.45)' },
-  joinText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 26 },
+  joinOff: { backgroundColor: palette.panelStroke, shadowOpacity: 0 },
+  joinText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: fs(26) },
   back: {
     marginTop: 8,
     width: '100%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.bgAlt,
+    borderRadius: 20,
+    borderWidth: 0,
+    backgroundColor: palette.panelSoft,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  backText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  backText: { color: palette.muted, fontFamily: fonts.body, fontSize: fs(14) },
 });

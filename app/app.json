@@ -28,6 +28,9 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.taprush"
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

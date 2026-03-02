@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { AmbientBackground } from './AmbientBackground';
 import { TierBadge } from './TierBadge';
-import { fonts, palette } from '../theme/ui';
+import { fonts, palette, fs } from '../theme/ui';
 import { getLeaderboard, LeaderboardEntry } from '../services/api';
 import { deriveUsername } from '../utils/username';
 
@@ -107,34 +107,35 @@ const styles = StyleSheet.create({
     paddingTop: 54, paddingHorizontal: 18, paddingBottom: 10,
     flexDirection: 'row', alignItems: 'center', gap: 12,
   },
-  back: { color: palette.muted, fontFamily: fonts.mono, fontSize: 13 },
-  title: { color: palette.text, fontFamily: fonts.display, fontSize: 24 },
+  back: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: fs(13) },
+  title: { color: palette.text, fontFamily: fonts.display, fontSize: fs(24) },
   tabs: { flexDirection: 'row', paddingHorizontal: 18, gap: 6, marginBottom: 10 },
   tab: {
-    flex: 1, borderRadius: 8, borderWidth: 1,
-    borderColor: palette.panelStroke, backgroundColor: palette.panelSoft,
+    flex: 1, borderRadius: 16, borderWidth: 0,
+    backgroundColor: palette.panelSoft,
     paddingVertical: 8, alignItems: 'center',
   },
-  tabActive: { backgroundColor: palette.primary, borderColor: palette.primary },
-  tabText: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10 },
+  tabActive: { backgroundColor: palette.primaryStrong },
+  tabText: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(10) },
   tabTextActive: { color: palette.buttonText },
   myRank: {
-    marginHorizontal: 18, marginBottom: 10, borderRadius: 8,
-    backgroundColor: 'rgba(94, 192, 255, 0.12)', paddingVertical: 6, alignItems: 'center',
+    marginHorizontal: 18, marginBottom: 10, borderRadius: 14,
+    backgroundColor: 'rgba(255, 45, 111, 0.1)', paddingVertical: 8, alignItems: 'center',
   },
-  myRankText: { color: palette.primary, fontFamily: fonts.mono, fontSize: 12 },
-  empty: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, textAlign: 'center', marginTop: 40 },
+  myRankText: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: fs(12) },
+  empty: { color: palette.muted, fontFamily: fonts.body, fontSize: fs(14), textAlign: 'center', marginTop: 40 },
   row: {
-    marginHorizontal: 18, marginBottom: 6, borderRadius: 12, borderWidth: 1,
-    borderColor: palette.panelStroke, backgroundColor: palette.panel,
+    marginHorizontal: 18, marginBottom: 6, borderRadius: 16, borderWidth: 0,
+    backgroundColor: palette.panel,
     flexDirection: 'row', alignItems: 'center', padding: 12,
+    shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 1,
   },
-  rowTop: { borderColor: 'rgba(255, 215, 0, 0.3)' },
-  rank: { color: palette.muted, fontFamily: fonts.display, fontSize: 18, width: 40, textAlign: 'center' },
-  rankTop: { color: palette.warning, fontSize: 22 },
+  rowTop: { backgroundColor: palette.panelSoft },
+  rank: { color: palette.muted, fontFamily: fonts.display, fontSize: fs(18), width: 40, textAlign: 'center' },
+  rankTop: { color: palette.warning, fontSize: fs(22) },
   info: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  name: { color: palette.text, fontFamily: fonts.body, fontSize: 15 },
+  name: { color: palette.text, fontFamily: fonts.body, fontSize: fs(15) },
   statsRow: { flexDirection: 'row', gap: 12 },
-  stat: { color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
+  stat: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(11) },
 });

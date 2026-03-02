@@ -31,8 +31,8 @@ export function AmbientBackground({ tone = 'cool' }: AmbientBackgroundProps) {
     };
   }, []);
 
-  const topGlow = tone === 'warm' ? palette.warning : tone === 'danger' ? palette.danger : palette.primary;
-  const bottomGlow = tone === 'danger' ? '#C43D60' : palette.accent;
+  const topGlow = tone === 'warm' ? '#F59E0B' : tone === 'danger' ? '#EF4444' : '#FF2D6F';
+  const bottomGlow = tone === 'danger' ? '#EF4444' : '#06D6A0';
 
   return (
     <View pointerEvents="none" style={styles.container}>
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     borderRadius: 180,
     top: -150,
     left: -90,
-    opacity: 0.2,
+    opacity: 0.15,
   },
   glowBottom: {
     position: 'absolute',
@@ -86,17 +86,17 @@ const styles = StyleSheet.create({
     borderRadius: 140,
     right: -110,
     bottom: -120,
-    opacity: 0.18,
+    opacity: 0.12,
   },
   texture: {
     ...StyleSheet.absoluteFillObject,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(198, 217, 255, 0.08)',
-    opacity: 0.55,
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
+    borderColor: 'transparent',
+    opacity: 0,
   },
   vignette: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(8, 13, 24, 0.32)',
+    backgroundColor: 'transparent',
   },
 });

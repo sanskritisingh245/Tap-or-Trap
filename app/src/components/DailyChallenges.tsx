@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { fonts, palette } from '../theme/ui';
+import { fonts, palette, fs } from '../theme/ui';
 import { getDailyChallenges, DailyChallenge } from '../services/api';
 
 export function DailyChallenges() {
@@ -43,27 +43,26 @@ export function DailyChallenges() {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
+    borderRadius: 18,
+    borderWidth: 0,
     backgroundColor: palette.panelSoft,
-    padding: 12,
+    padding: 14,
     marginBottom: 10,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  title: { color: palette.warning, fontFamily: fonts.mono, fontSize: 11 },
-  count: { color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
+  title: { color: palette.warning, fontFamily: fonts.mono, fontSize: fs(11) },
+  count: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(11) },
   row: {
     marginBottom: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: palette.panelSoft,
     padding: 8,
   },
   rowDone: { opacity: 0.6 },
   info: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  label: { color: palette.text, fontFamily: fonts.body, fontSize: 13, flex: 1 },
+  label: { color: palette.text, fontFamily: fonts.body, fontSize: fs(13), flex: 1 },
   labelDone: { color: palette.success },
-  reward: { color: palette.accent, fontFamily: fonts.mono, fontSize: 10 },
+  reward: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: fs(10) },
   barTrack: {
     height: 6,
     borderRadius: 3,
@@ -76,5 +75,5 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   barDone: { backgroundColor: palette.success },
-  progress: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10, marginTop: 2, textAlign: 'right' },
+  progress: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(10), marginTop: 2, textAlign: 'right' },
 });

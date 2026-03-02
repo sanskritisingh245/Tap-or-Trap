@@ -133,6 +133,40 @@ pub mod snapduel {
         Ok(())
     }
 
+    /// Backend-only: commits a seed hash on-chain BEFORE a game round starts.
+    /// This proves the outcome was determined before any bets were placed.
+    pub fn commit_seed(
+        ctx: Context<CommitSeed>,
+        game_id: [u8; 32],
+        seed_hash: [u8; 32],
+        game_type: u8,
+    ) -> Result<()> {
+        let commitment = &mut ctx.accounts.commitment;
+        commitment.game_id = game_id;
+        commitment.seed_hash = seed_hash;
+        commitment.game_type = game_type;
+        commitment.revealed = false;
+        commitment.server_seed = [0u8; 32];
+        commitment.committed_at = Clock::get()?.unix_timestamp;
+        commitment.revealed_at = 0;
+        commitment.bump = ctx.bumps.commitment;
+        Ok(())
+    }
+
+    /// Backend-only: reveals the server seed after a game round ends.
+    /// Anyone can now verify: SHA-256(server_seed) == seed_hash.
+    pub fn reveal_seed(
+        ctx: Context<RevealSeed>,
+        server_seed: [u8; 32],
+    ) -> Result<()> {
+        let commitment = &mut ctx.accounts.commitment;
+        require!(!commitment.revealed, ErrorCode::SeedAlreadyRevealed);
+        commitment.server_seed = server_seed;
+        commitment.revealed = true;
+        commitment.revealed_at = Clock::get()?.unix_timestamp;
+        Ok(())
+    }
+
     /// Backend-only: cancels a match, refunds escrow to treasury, restores credits.
     pub fn cancel_match(ctx: Context<CancelMatch>) -> Result<()> {
         let escrow = &mut ctx.accounts.match_escrow;
@@ -202,6 +236,21 @@ pub struct Leaderboard {
 }
 // Space: 8 + 32 + 4 + 4 + 2 + 1 = 51
 
+/// On-chain commitment of a game's seed hash for provably fair verification.
+/// Seeds: [b"commitment", game_id]
+#[account]
+pub struct GameCommitment {
+    pub game_id: [u8; 32],      // 32
+    pub seed_hash: [u8; 32],    // 32
+    pub server_seed: [u8; 32],  // 32 (zeroed until revealed)
+    pub game_type: u8,          // 1 (0=coinflip, 1=dice, 2=mines, 3=crash)
+    pub revealed: bool,         // 1
+    pub committed_at: i64,      // 8
+    pub revealed_at: i64,       // 8
+    pub bump: u8,               // 1
+}
+// Space: 8 + 32 + 32 + 32 + 1 + 1 + 8 + 8 + 1 = 123
+
 // ─── Instruction Accounts ───────────────────────────────────────────
 
 #[derive(Accounts)]
@@ -239,6 +288,37 @@ pub struct TopUp<'info> {
     pub player_credits: Account<'info, PlayerCredits>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(game_id: [u8; 32])]
+pub struct CommitSeed<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 123,
+        seeds = [b"commitment", game_id.as_ref()],
+        bump
+    )]
+    pub commitment: Account<'info, GameCommitment>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RevealSeed<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"commitment", commitment.game_id.as_ref()],
+        bump = commitment.bump,
+        constraint = !commitment.revealed @ ErrorCode::SeedAlreadyRevealed
+    )]
+    pub commitment: Account<'info, GameCommitment>,
 }
 
 #[derive(Accounts)]
@@ -368,4 +448,6 @@ pub enum ErrorCode {
     InvalidWinner,
     #[msg("Arithmetic overflow.")]
     Overflow,
+    #[msg("Seed has already been revealed.")]
+    SeedAlreadyRevealed,
 }

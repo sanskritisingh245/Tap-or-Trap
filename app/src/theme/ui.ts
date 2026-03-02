@@ -1,24 +1,36 @@
-import { Platform } from 'react-native';
-
 export const palette = {
-  bg: '#0B1220',
-  bgAlt: '#111B31',
-  text: '#F5F8FF',
-  muted: '#A6B3CD',
-  primary: '#5EC0FF',
-  primaryStrong: '#2B8BFF',
-  accent: '#6AF5D3',
-  success: '#8EF28A',
-  warning: '#FFC66B',
-  danger: '#FF7D9D',
-  panel: 'rgba(21, 33, 56, 0.86)',
-  panelSoft: 'rgba(21, 33, 56, 0.66)',
-  panelStroke: 'rgba(140, 168, 220, 0.28)',
-  buttonText: '#081426',
+  bg: '#0A0E1A',
+  bgAlt: '#111827',
+  text: '#E2E8F0',
+  muted: '#64748B',
+  primary: '#FF2D6F',
+  primaryStrong: '#FF1A5C',
+  accent: '#06D6A0',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  panel: '#1E293B',
+  panelSoft: '#1A2332',
+  panelStroke: 'rgba(255, 45, 111, 0.15)',
+  buttonText: '#FFFFFF',
+};
+
+export const gameColors = {
+  taprush: '#FF2D6F',
+  coinflip: '#F59E0B',
+  dice: '#06D6A0',
+  mines: '#EF4444',
+  crash: '#A855F7',
 };
 
 export const fonts = {
-  display: Platform.select({ ios: 'AvenirNext-Heavy', android: 'sans-serif-condensed', default: 'System' }),
-  body: Platform.select({ ios: 'AvenirNext-DemiBold', android: 'sans-serif-medium', default: 'System' }),
-  mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  display: 'Quicksand_700Bold',
+  body: 'Quicksand_500Medium',
+  mono: 'JetBrainsMono_300Light',
 };
+
+/** Global font scale — multiply all fontSize values by this */
+export const FONT_SCALE = 1.2;
+
+/** Scale a font size: fs(14) => 14 * FONT_SCALE */
+export const fs = (size: number) => Math.round(size * FONT_SCALE);

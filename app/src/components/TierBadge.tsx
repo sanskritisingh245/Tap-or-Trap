@@ -1,14 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { fonts } from '../theme/ui';
+import { Ionicons } from '@expo/vector-icons';
+import { fonts, fs } from '../theme/ui';
 import type { Tier } from '../services/api';
 
-const TIER_CONFIG: Record<string, { emoji: string; color: string; label: string }> = {
-  BRONZE:  { emoji: '🥉', color: '#CD7F32', label: 'BRONZE' },
-  SILVER:  { emoji: '🥈', color: '#C0C0C0', label: 'SILVER' },
-  GOLD:    { emoji: '🥇', color: '#FFD700', label: 'GOLD' },
-  DIAMOND: { emoji: '💎', color: '#B9F2FF', label: 'DIAMOND' },
-  PHANTOM: { emoji: '👻', color: '#9945FF', label: 'PHANTOM' },
+const TIER_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }> = {
+  BRONZE:  { icon: 'shield', color: '#CD7F32', label: 'BRONZE' },
+  SILVER:  { icon: 'medal', color: '#C0C0C0', label: 'SILVER' },
+  GOLD:    { icon: 'trophy', color: '#FFD700', label: 'GOLD' },
+  DIAMOND: { icon: 'diamond', color: '#B9F2FF', label: 'DIAMOND' },
+  PHANTOM: { icon: 'flame', color: '#9945FF', label: 'PHANTOM' },
 };
 
 interface TierBadgeProps {
@@ -19,10 +20,11 @@ interface TierBadgeProps {
 export function TierBadge({ tier, size = 'small' }: TierBadgeProps) {
   const config = TIER_CONFIG[tier] || TIER_CONFIG.BRONZE;
   const isLarge = size === 'large';
+  const iconSize = isLarge ? 18 : 12;
 
   return (
     <View style={[styles.badge, { borderColor: config.color }, isLarge && styles.badgeLarge]}>
-      <Text style={isLarge ? styles.emojiLarge : styles.emoji}>{config.emoji}</Text>
+      <Ionicons name={config.icon} size={iconSize} color={config.color} />
       <Text style={[styles.label, { color: config.color }, isLarge && styles.labelLarge]}>{config.label}</Text>
     </View>
   );
@@ -47,8 +49,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
   },
-  emoji: { fontSize: 12 },
-  emojiLarge: { fontSize: 20 },
-  label: { fontFamily: fonts.mono, fontSize: 10 },
-  labelLarge: { fontSize: 14 },
+  label: { fontFamily: fonts.mono, fontSize: fs(10) },
+  labelLarge: { fontSize: fs(14) },
 });
