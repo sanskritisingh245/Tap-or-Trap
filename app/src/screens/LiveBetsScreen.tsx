@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
 } from 'react-native';
 import { AmbientBackground } from '../components/AmbientBackground';
-import { fonts, palette, gameColors, fs } from '../theme/ui';
+import { fonts, palette, gameColors } from '../theme/ui';
 import { getLiveFeed, LiveFeedItem } from '../services/gameApi';
 
 const GAME_META: Record<string, { emoji: string; color: string }> = {
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 12,
   },
-  title: { color: palette.text, fontFamily: fonts.display, fontSize: fs(28) },
+  title: { color: palette.text, fontFamily: fonts.display, fontSize: 28 },
   liveDot: {
     width: 8,
     height: 8,
@@ -121,16 +121,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gameEmoji: { fontSize: fs(20) },
+  gameEmoji: { fontSize: 20 },
   info: { flex: 1, marginLeft: 12 },
-  wallet: { color: palette.text, fontFamily: fonts.body, fontSize: fs(14) },
-  gameName: { fontFamily: fonts.mono, fontSize: fs(11), marginTop: 2 },
+  wallet: { color: palette.text, fontFamily: fonts.body, fontSize: 14 },
+  gameName: { fontFamily: fonts.mono, fontSize: 11, marginTop: 2 },
   resultCol: { alignItems: 'flex-end' },
-  net: { fontFamily: fonts.display, fontSize: fs(18) },
+  net: { fontFamily: fonts.display, fontSize: 18 },
   netWin: { color: palette.success },
   netLose: { color: palette.danger },
-  bet: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(10), marginTop: 2 },
+  bet: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10, marginTop: 2 },
   emptyBox: { alignItems: 'center', marginTop: 80 },
-  emptyTitle: { color: palette.text, fontFamily: fonts.display, fontSize: fs(22) },
-  emptySub: { color: palette.muted, fontFamily: fonts.body, fontSize: fs(14), marginTop: 4 },
+  emptyTitle: { color: palette.text, fontFamily: fonts.display, fontSize: 22 },
+  emptySub: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, marginTop: 4 },
 });

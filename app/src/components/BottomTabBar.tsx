@@ -1,14 +1,15 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { fonts, palette, fs } from '../theme/ui';
+import { fonts, palette } from '../theme/ui';
 
 const TABS = [
-  { key: 'home', label: 'Games', icon: 'game-controller' as const },
-  { key: 'missions', label: 'Missions', icon: 'flag' as const },
-  { key: 'fairness', label: 'Fair', icon: 'shield-checkmark' as const },
+  { key: 'home', label: 'Casino', icon: 'game-controller' as const },
+  { key: 'missions', label: 'Rewards', icon: 'gift' as const },
+  { key: 'fairness', label: 'Provably', icon: 'shield-checkmark' as const },
   { key: 'livebets', label: 'Live', icon: 'pulse' as const },
-  { key: 'settings', label: 'Settings', icon: 'settings' as const },
+  { key: 'settings', label: 'Profile', icon: 'person' as const },
 ] as const;
 
 interface BottomTabBarProps {
@@ -16,65 +17,82 @@ interface BottomTabBarProps {
   onTabPress: (tab: string) => void;
 }
 
+function TabItem({ tab, active, onPress }: { tab: typeof TABS[number]; active: boolean; onPress: () => void }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const iconName = active ? tab.icon : `${tab.icon}-outline` as any;
+
+  return (
+    <Pressable
+      style={styles.tab}
+      onPress={onPress}
+      onPressIn={() => Animated.spring(scale, { toValue: 0.85, useNativeDriver: true, damping: 15, stiffness: 400 }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 15, stiffness: 400 }).start()}
+    >
+      <Animated.View style={[styles.tabInner, active && styles.tabActive, { transform: [{ scale }] }]}>
+        <Ionicons
+          name={iconName}
+          size={20}
+          color={active ? palette.primary : 'rgba(255,255,255,0.30)'}
+        />
+        <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 export function BottomTabBar({ activeTab, onTabPress }: BottomTabBarProps) {
   return (
-    <View style={styles.container}>
-      {TABS.map(tab => {
-        const active = activeTab === tab.key;
-        const iconName = active ? tab.icon : `${tab.icon}-outline` as any;
-        return (
-          <TouchableOpacity
+    <BlurView intensity={60} tint="dark" style={styles.blur}>
+      <View style={styles.border} />
+      <View style={styles.container}>
+        {TABS.map(tab => (
+          <TabItem
             key={tab.key}
-            style={styles.tab}
+            tab={tab}
+            active={activeTab === tab.key}
             onPress={() => onTabPress(tab.key)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={iconName}
-              size={22}
-              color={active ? palette.primaryStrong : palette.muted}
-            />
-            <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
-            {active && <View style={styles.dot} />}
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+          />
+        ))}
+      </View>
+    </BlurView>
   );
 }
 
 const styles = StyleSheet.create({
+  blur: {
+    paddingBottom: 34,
+    backgroundColor: 'rgba(15,33,46,0.85)',
+  },
+  border: {
+    height: 0.5,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
   container: {
     flexDirection: 'row',
-    backgroundColor: palette.panel,
-    paddingTop: 8,
-    paddingBottom: 28,
-    borderTopWidth: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 8,
+    paddingTop: 6,
+    paddingHorizontal: 4,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  tabInner: {
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  tabActive: {
+    backgroundColor: 'rgba(59,130,246,0.06)',
   },
   label: {
-    color: palette.muted,
-    fontFamily: fonts.mono,
-    fontSize: fs(10),
+    color: 'rgba(255,255,255,0.30)',
+    fontFamily: fonts.body,
+    fontSize: 10,
     marginTop: 2,
   },
   labelActive: {
-    color: palette.primaryStrong,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: palette.primaryStrong,
-    marginTop: 3,
+    color: palette.primary,
   },
 });

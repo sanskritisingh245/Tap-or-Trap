@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions,
+  View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Pressable,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fonts, palette, fs } from '../theme/ui';
+import { fonts, palette, shadows } from '../theme/ui';
 
 const { width } = Dimensions.get('window');
 const ONBOARDING_KEY = 'taprush_onboarded';
@@ -12,20 +13,23 @@ const SLIDES = [
   {
     emoji: '⚡',
     title: 'Bet & Play',
-    desc: 'Start with 100 free credits. Choose from 5 games — PvP TapRush, Coin Flip, Dice, Mines, or Crash.',
-    color: '#FF2D6F',
+    desc: 'Start with free credits. Jump into TapRush, Coin Flip, Dice, Mines, and Crash.',
+    color: '#3B82F6',
+    gradient: ['rgba(59,130,246,0.12)', 'rgba(59,130,246,0.03)', 'transparent'] as [string, string, string],
   },
   {
     emoji: '🎲',
-    title: 'Seeker Native',
-    desc: 'Shake your phone to roll dice. Built for the Solana Seeker with hardware-integrated gameplay.',
-    color: '#06D6A0',
+    title: 'Built for Mobile',
+    desc: 'Shake to roll, tap to react, and play fast with controls tuned for real-time betting.',
+    color: '#60A5FA',
+    gradient: ['rgba(96,165,250,0.12)', 'rgba(96,165,250,0.03)', 'transparent'] as [string, string, string],
   },
   {
     emoji: '⛓',
     title: 'Provably Fair',
-    desc: 'Every game outcome is committed to Solana before your bet. Verify any result on-chain — no trust needed.',
-    color: '#A855F7',
+    desc: 'Every outcome is committed before you bet and can be verified after the round.',
+    color: '#B983FF',
+    gradient: ['rgba(167,139,250,0.12)', 'rgba(167,139,250,0.03)', 'transparent'] as [string, string, string],
   },
 ];
 
@@ -36,6 +40,13 @@ interface Props {
 export function Onboarding({ onComplete }: Props) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const emojiScale = useRef(new Animated.Value(0.6)).current;
+  const btnScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    emojiScale.setValue(0.6);
+    Animated.spring(emojiScale, { toValue: 1, friction: 6, tension: 120, useNativeDriver: true }).start();
+  }, [currentSlide]);
 
   const handleNext = () => {
     if (currentSlide < SLIDES.length - 1) {
@@ -54,8 +65,17 @@ export function Onboarding({ onComplete }: Props) {
 
   return (
     <View style={styles.container}>
+      <LinearGradient
+        colors={slide.gradient}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0.5, y: 1 }}
+        end={{ x: 0.5, y: 0.3 }}
+      />
+
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        <Text style={styles.emoji}>{slide.emoji}</Text>
+        <Animated.Text style={[styles.emoji, { transform: [{ scale: emojiScale }] }]}>
+          {slide.emoji}
+        </Animated.Text>
         <Text style={[styles.title, { color: slide.color }]}>{slide.title}</Text>
         <Text style={styles.desc}>{slide.desc}</Text>
       </Animated.View>
@@ -63,13 +83,36 @@ export function Onboarding({ onComplete }: Props) {
       <View style={styles.footer}>
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
-            <View key={i} style={[styles.dot, i === currentSlide && { backgroundColor: slide.color, width: 20 }]} />
+            <View
+              key={i}
+              style={[
+                styles.dot,
+                i === currentSlide && {
+                  backgroundColor: slide.color,
+                  width: 20,
+                  ...shadows.glow(slide.color),
+                },
+              ]}
+            />
           ))}
         </View>
 
-        <TouchableOpacity style={[styles.nextBtn, { backgroundColor: slide.color }]} onPress={handleNext} activeOpacity={0.86}>
-          <Text style={styles.nextText}>{isLast ? 'START PLAYING' : 'NEXT'}</Text>
-        </TouchableOpacity>
+        <Pressable
+          onPress={handleNext}
+          onPressIn={() => Animated.spring(btnScale, { toValue: 0.96, useNativeDriver: true, damping: 15, stiffness: 300 }).start()}
+          onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true, damping: 15, stiffness: 300 }).start()}
+        >
+          <Animated.View style={{ transform: [{ scale: btnScale }], width: width - 48 }}>
+            <LinearGradient
+              colors={[slide.color, slide.color + 'CC'] as [string, string]}
+              style={[styles.nextBtn, shadows.glow(slide.color)]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.nextText}>{isLast ? 'Get Started' : 'Next'}</Text>
+            </LinearGradient>
+          </Animated.View>
+        </Pressable>
 
         {!isLast && (
           <TouchableOpacity onPress={() => {
@@ -95,24 +138,23 @@ export async function shouldShowOnboarding(): Promise<boolean> {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, backgroundColor: palette.bg, justifyContent: 'center', alignItems: 'center', padding: 28,
+    flex: 1, backgroundColor: '#0F212E', justifyContent: 'center', alignItems: 'center', padding: 24,
   },
-  content: { alignItems: 'center', flex: 1, justifyContent: 'center' },
-  emoji: { fontSize: fs(80), marginBottom: 20 },
-  title: { fontFamily: fonts.display, fontSize: fs(36), textAlign: 'center' },
+  content: { alignItems: 'center', paddingHorizontal: 20 },
+  emoji: { fontSize: 72, marginBottom: 24 },
+  title: { fontFamily: fonts.display, fontSize: 34, textAlign: 'center' },
   desc: {
-    color: palette.text, fontFamily: fonts.body, fontSize: fs(16), textAlign: 'center',
-    marginTop: 12, lineHeight: 24, paddingHorizontal: 10,
+    color: 'rgba(255,255,255,0.60)', fontFamily: fonts.light, fontSize: 17, textAlign: 'center',
+    marginTop: 12, lineHeight: 24,
   },
-  footer: { width: '100%', alignItems: 'center', paddingBottom: 20 },
+  footer: { position: 'absolute', bottom: 60, left: 24, right: 24, alignItems: 'center' },
   dots: { flexDirection: 'row', gap: 8, marginBottom: 24 },
   dot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: palette.muted,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.18)',
   },
   nextBtn: {
-    width: '100%', borderRadius: 24, paddingVertical: 16, alignItems: 'center',
-    shadowColor: palette.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
+    borderRadius: 14, paddingVertical: 16, alignItems: 'center',
   },
-  nextText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: fs(20) },
-  skipText: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(13), marginTop: 16 },
+  nextText: { color: '#0F212E', fontFamily: fonts.display, fontSize: 17 },
+  skipText: { color: 'rgba(255,255,255,0.36)', fontFamily: fonts.body, fontSize: 15, marginTop: 16 },
 });

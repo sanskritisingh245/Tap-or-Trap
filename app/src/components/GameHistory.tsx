@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { AmbientBackground } from './AmbientBackground';
 import { getGameHistory, GameBet } from '../services/gameApi';
-import { fonts, palette, gameColors, fs } from '../theme/ui';
+import { fonts, palette, gameColors } from '../theme/ui';
 
 interface Props {
   onBack: () => void;
@@ -100,11 +100,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingTop: 56, paddingHorizontal: 16, paddingBottom: 12,
   },
-  back: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: fs(13) },
-  title: { color: palette.text, fontFamily: fonts.display, fontSize: fs(18) },
+  back: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: 13 },
+  title: { color: palette.text, fontFamily: fonts.display, fontSize: 18 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  empty: { color: palette.muted, fontFamily: fonts.body, fontSize: fs(16) },
-  emptySub: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(12), marginTop: 4 },
+  empty: { color: palette.muted, fontFamily: fonts.body, fontSize: 16 },
+  emptySub: { color: palette.muted, fontFamily: fonts.mono, fontSize: 12, marginTop: 4 },
   list: { paddingHorizontal: 16, paddingBottom: 32 },
   row: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -113,12 +113,12 @@ const styles = StyleSheet.create({
     shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 1,
   },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  emoji: { fontSize: fs(24) },
-  gameName: { fontFamily: fonts.body, fontSize: fs(14) },
-  time: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(10), marginTop: 1 },
+  emoji: { fontSize: 24 },
+  gameName: { fontFamily: fonts.body, fontSize: 14 },
+  time: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10, marginTop: 1 },
   rowRight: { alignItems: 'flex-end' },
-  net: { fontFamily: fonts.display, fontSize: fs(18) },
+  net: { fontFamily: fonts.display, fontSize: 18 },
   netWin: { color: palette.success },
   netLose: { color: palette.danger },
-  betSize: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(10), marginTop: 1 },
+  betSize: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10, marginTop: 1 },
 });

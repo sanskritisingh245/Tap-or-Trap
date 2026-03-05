@@ -1,15 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { fonts, fs } from '../theme/ui';
+import { Text, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { fonts } from '../theme/ui';
 import type { Tier } from '../services/api';
 
-const TIER_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }> = {
-  BRONZE:  { icon: 'shield', color: '#CD7F32', label: 'BRONZE' },
-  SILVER:  { icon: 'medal', color: '#C0C0C0', label: 'SILVER' },
-  GOLD:    { icon: 'trophy', color: '#FFD700', label: 'GOLD' },
-  DIAMOND: { icon: 'diamond', color: '#B9F2FF', label: 'DIAMOND' },
-  PHANTOM: { icon: 'flame', color: '#9945FF', label: 'PHANTOM' },
+const TIER_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
+  BRONZE:  { color: '#CD7F32', label: 'Bronze', icon: '🛡' },
+  SILVER:  { color: '#A8B0B5', label: 'Silver', icon: '⚔️' },
+  GOLD:    { color: '#FFB800', label: 'Gold', icon: '⭐' },
+  DIAMOND: { color: '#60A5FA', label: 'Diamond', icon: '💎' },
+  PHANTOM: { color: '#B983FF', label: 'Phantom', icon: '👻' },
 };
 
 interface TierBadgeProps {
@@ -20,13 +20,17 @@ interface TierBadgeProps {
 export function TierBadge({ tier, size = 'small' }: TierBadgeProps) {
   const config = TIER_CONFIG[tier] || TIER_CONFIG.BRONZE;
   const isLarge = size === 'large';
-  const iconSize = isLarge ? 18 : 12;
 
   return (
-    <View style={[styles.badge, { borderColor: config.color }, isLarge && styles.badgeLarge]}>
-      <Ionicons name={config.icon} size={iconSize} color={config.color} />
+    <LinearGradient
+      colors={[config.color + '20', config.color + '08'] as [string, string]}
+      style={[styles.badge, isLarge && styles.badgeLarge]}
+      start={{ x: 0, y: 0.5 }}
+      end={{ x: 1, y: 0.5 }}
+    >
+      <Text style={[styles.icon, isLarge && styles.iconLarge]}>{config.icon}</Text>
       <Text style={[styles.label, { color: config.color }, isLarge && styles.labelLarge]}>{config.label}</Text>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -38,17 +42,18 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     gap: 4,
   },
   badgeLarge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 10,
   },
-  label: { fontFamily: fonts.mono, fontSize: fs(10) },
-  labelLarge: { fontSize: fs(14) },
+  icon: { fontSize: 12 },
+  iconLarge: { fontSize: 16 },
+  label: { fontFamily: fonts.body, fontSize: 12 },
+  labelLarge: { fontSize: 15 },
 });

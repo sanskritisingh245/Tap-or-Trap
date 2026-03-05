@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { fonts, palette, fs } from '../theme/ui';
+import { LinearGradient } from 'expo-linear-gradient';
+import { fonts, palette } from '../theme/ui';
 import { getDailyChallenges, DailyChallenge } from '../services/api';
 
 export function DailyChallenges() {
@@ -31,7 +32,14 @@ export function DailyChallenges() {
               <Text style={styles.reward}>+{ch.rewardXp}xp +{ch.rewardCredits} play</Text>
             </View>
             <View style={styles.barTrack}>
-              <View style={[styles.barFill, { width: `${pct * 100}%` }, ch.completed && styles.barDone]} />
+              <LinearGradient
+                colors={ch.completed
+                  ? [palette.success, palette.success + 'CC']
+                  : [palette.primary, palette.primary + 'CC']
+                }
+                style={[styles.barFill, { width: `${pct * 100}%` }]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              />
             </View>
             <Text style={styles.progress}>{ch.progress}/{ch.target}</Text>
           </View>
@@ -42,38 +50,17 @@ export function DailyChallenges() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 18,
-    borderWidth: 0,
-    backgroundColor: palette.panelSoft,
-    padding: 14,
-    marginBottom: 10,
-  },
+  container: { borderRadius: 18, backgroundColor: palette.panelSoft, padding: 14, marginBottom: 10 },
   header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  title: { color: palette.warning, fontFamily: fonts.mono, fontSize: fs(11) },
-  count: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(11) },
-  row: {
-    marginBottom: 8,
-    borderRadius: 8,
-    backgroundColor: palette.panelSoft,
-    padding: 8,
-  },
+  title: { color: palette.warning, fontFamily: fonts.mono, fontSize: 11 },
+  count: { color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
+  row: { marginBottom: 8, borderRadius: 8, backgroundColor: palette.panelSoft, padding: 8 },
   rowDone: { opacity: 0.6 },
   info: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  label: { color: palette.text, fontFamily: fonts.body, fontSize: fs(13), flex: 1 },
+  label: { color: palette.text, fontFamily: fonts.body, fontSize: 13, flex: 1 },
   labelDone: { color: palette.success },
-  reward: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: fs(10) },
-  barTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: palette.bgAlt,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    backgroundColor: palette.primary,
-    borderRadius: 3,
-  },
-  barDone: { backgroundColor: palette.success },
-  progress: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(10), marginTop: 2, textAlign: 'right' },
+  reward: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: 10 },
+  barTrack: { height: 6, borderRadius: 3, backgroundColor: palette.bgAlt, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 3 },
+  progress: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10, marginTop: 2, textAlign: 'right' },
 });

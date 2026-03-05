@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { AmbientBackground } from './AmbientBackground';
-import { fonts, palette, fs } from '../theme/ui';
+import { fonts, palette } from '../theme/ui';
 import { getMatchHistory, MatchHistoryEntry } from '../services/api';
 import { deriveUsername } from '../utils/username';
 
@@ -104,12 +104,12 @@ const styles = StyleSheet.create({
   back: {
     color: palette.primaryStrong,
     fontFamily: fonts.body,
-    fontSize: fs(16),
+    fontSize: 16,
   },
   title: {
     color: palette.text,
     fontFamily: fonts.display,
-    fontSize: fs(24),
+    fontSize: 24,
   },
   list: {
     paddingHorizontal: 18,
@@ -130,18 +130,18 @@ const styles = StyleSheet.create({
   },
   result: {
     fontFamily: fonts.mono,
-    fontSize: fs(12),
+    fontSize: 12,
   },
   time: {
     color: palette.muted,
     fontFamily: fonts.mono,
-    fontSize: fs(11),
+    fontSize: 11,
   },
   opp: {
     marginTop: 5,
     color: palette.text,
     fontFamily: fonts.body,
-    fontSize: fs(15),
+    fontSize: 15,
   },
   rowData: {
     flexDirection: 'row',
@@ -151,13 +151,13 @@ const styles = StyleSheet.create({
   data: {
     color: palette.muted,
     fontFamily: fonts.mono,
-    fontSize: fs(12),
+    fontSize: 12,
   },
   forfeit: {
     marginTop: 7,
     color: palette.danger,
     fontFamily: fonts.body,
-    fontSize: fs(13),
+    fontSize: 13,
   },
   empty: {
     alignItems: 'center',
@@ -167,12 +167,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: palette.text,
     fontFamily: fonts.display,
-    fontSize: fs(26),
+    fontSize: 26,
   },
   emptySub: {
     marginTop: 6,
     color: palette.muted,
     fontFamily: fonts.body,
-    fontSize: fs(14),
+    fontSize: 14,
   },
 });

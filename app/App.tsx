@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Platform, View, Text, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
-import { useFonts, Quicksand_700Bold, Quicksand_500Medium, Quicksand_600SemiBold } from '@expo-google-fonts/quicksand';
-import { JetBrainsMono_300Light } from '@expo-google-fonts/jetbrains-mono';
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import GameScreen from './src/screens/GameScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import CoinFlipScreen from './src/screens/CoinFlipScreen';
 import DiceScreen from './src/screens/DiceScreen';
 import MinesScreen from './src/screens/MinesScreen';
 import CrashScreen from './src/screens/CrashScreen';
+import PlinkoScreen from './src/screens/PlinkoScreen';
+import LimboScreen from './src/screens/LimboScreen';
+import KenoScreen from './src/screens/KenoScreen';
+import WheelScreen from './src/screens/WheelScreen';
+import BlackjackScreen from './src/screens/BlackjackScreen';
+import RouletteScreen from './src/screens/RouletteScreen';
+import HiloScreen from './src/screens/HiloScreen';
+import TowerScreen from './src/screens/TowerScreen';
+import SlotsScreen from './src/screens/SlotsScreen';
+import DragonTowerScreen from './src/screens/DragonTowerScreen';
 import FairnessScreen from './src/screens/FairnessScreen';
 import MissionsScreen from './src/screens/MissionsScreen';
 import LiveBetsScreen from './src/screens/LiveBetsScreen';
@@ -15,18 +25,19 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import { Onboarding, shouldShowOnboarding } from './src/components/Onboarding';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { useWallet } from './src/hooks/useWallet';
-import { palette, fonts, fs } from './src/theme/ui';
+import { palette, fonts } from './src/theme/ui';
 
-export type Screen = 'home' | 'taprush' | 'coinflip' | 'dice' | 'mines' | 'crash' | 'fairness' | 'missions' | 'livebets' | 'settings';
+export type Screen = 'home' | 'taprush' | 'coinflip' | 'dice' | 'mines' | 'crash' | 'plinko' | 'limbo' | 'keno' | 'wheel' | 'blackjack' | 'roulette' | 'hilo' | 'tower' | 'slots' | 'dragontower' | 'fairness' | 'missions' | 'livebets' | 'settings';
 
 const TAB_SCREENS: Screen[] = ['home', 'missions', 'fairness', 'livebets', 'settings'];
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    Quicksand_500Medium,
-    Quicksand_600SemiBold,
-    Quicksand_700Bold,
-    JetBrainsMono_300Light,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    JetBrainsMono_500Medium,
   });
   const wallet = useWallet();
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
@@ -83,6 +94,16 @@ export default function App() {
         {currentScreen === 'dice' && <DiceScreen onBack={goHome} />}
         {currentScreen === 'mines' && <MinesScreen onBack={goHome} />}
         {currentScreen === 'crash' && <CrashScreen onBack={goHome} />}
+        {currentScreen === 'plinko' && <PlinkoScreen onBack={goHome} />}
+        {currentScreen === 'limbo' && <LimboScreen onBack={goHome} />}
+        {currentScreen === 'keno' && <KenoScreen onBack={goHome} />}
+        {currentScreen === 'wheel' && <WheelScreen onBack={goHome} />}
+        {currentScreen === 'blackjack' && <BlackjackScreen onBack={goHome} />}
+        {currentScreen === 'roulette' && <RouletteScreen onBack={goHome} />}
+        {currentScreen === 'hilo' && <HiloScreen onBack={goHome} />}
+        {currentScreen === 'tower' && <TowerScreen onBack={goHome} />}
+        {currentScreen === 'slots' && <SlotsScreen onBack={goHome} />}
+        {currentScreen === 'dragontower' && <DragonTowerScreen onBack={goHome} />}
         {currentScreen === 'fairness' && <FairnessScreen onBack={goHome} />}
         {currentScreen === 'missions' && <MissionsScreen />}
         {currentScreen === 'livebets' && <LiveBetsScreen />}
@@ -101,7 +122,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: palette.bg },
   content: { flex: 1 },
   blocked: {
     flex: 1,
@@ -111,22 +132,22 @@ const styles = StyleSheet.create({
     padding: 28,
   },
   blockedKicker: {
-    color: palette.primary,
+    color: palette.muted,
     fontFamily: fonts.mono,
     letterSpacing: 1.5,
-    fontSize: fs(12),
+    fontSize: 13,
   },
   blockedTitle: {
     color: palette.text,
     fontFamily: fonts.display,
-    fontSize: fs(34),
+    fontSize: 28,
     marginTop: 8,
     textAlign: 'center',
   },
   blockedText: {
     color: palette.muted,
-    fontFamily: fonts.body,
-    fontSize: fs(16),
+    fontFamily: fonts.light,
+    fontSize: 16,
     marginTop: 12,
     textAlign: 'center',
   },

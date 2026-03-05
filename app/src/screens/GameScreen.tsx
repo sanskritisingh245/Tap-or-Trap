@@ -1,13 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  Animated,
+  View, Text, TouchableOpacity, Pressable, StyleSheet, ActivityIndicator, Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useMatch } from '../hooks/useMatch';
 import { useAccelerometer } from '../hooks/useAccelerometer';
@@ -22,7 +17,7 @@ import { TierBadge } from '../components/TierBadge';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { getCreditsBalance, topUpCredits } from '../services/api';
 import { deriveUsername } from '../utils/username';
-import { fonts, palette, fs } from '../theme/ui';
+import { fonts, palette, shadows } from '../theme/ui';
 
 type UIMode = 'lobby' | 'join_code' | 'history' | 'leaderboard' | 'game';
 
@@ -61,24 +56,20 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
   const toastOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const p = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.03, duration: 850, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 850, useNativeDriver: true }),
-      ])
-    );
+    const p = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1.03, duration: 850, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1, duration: 850, useNativeDriver: true }),
+    ]));
     p.start();
     return () => p.stop();
   }, []);
 
   useEffect(() => {
     if (match.phase === 'draw') {
-      const pop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(drawPop, { toValue: 1.08, duration: 140, useNativeDriver: true }),
-          Animated.timing(drawPop, { toValue: 1, duration: 140, useNativeDriver: true }),
-        ])
-      );
+      const pop = Animated.loop(Animated.sequence([
+        Animated.timing(drawPop, { toValue: 1.08, duration: 140, useNativeDriver: true }),
+        Animated.timing(drawPop, { toValue: 1, duration: 140, useNativeDriver: true }),
+      ]));
       pop.start();
       return () => pop.stop();
     }
@@ -88,7 +79,6 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
     if (match.phase === 'result' && match.result) {
       setShowCountdown(true);
       setTaunt(pickTaunt(match.result.won));
-      // Show achievement toast if any
       if (match.result.newAchievements.length > 0) {
         const achId = match.result.newAchievements[0];
         setAchievementToast(ACHIEVEMENT_LABELS[achId] || achId);
@@ -108,23 +98,18 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
   }, [match.phase]);
 
   const refreshCredits = useCallback(async () => {
-    try {
-      const balance = await getCreditsBalance();
-      setCredits(balance);
-      return balance;
-    } catch {
-      setCredits(0);
-      return 0;
-    }
+    try { const balance = await getCreditsBalance(); setCredits(balance); return balance; }
+    catch { setCredits(0); return 0; }
   }, []);
 
-  // Achievement toast overlay
   const renderAchievementToast = () => {
     if (!achievementToast) return null;
     return (
       <Animated.View style={[styles.toast, { opacity: toastOpacity }]} pointerEvents="none">
-        <Text style={styles.toastTitle}>ACHIEVEMENT UNLOCKED</Text>
-        <Text style={styles.toastText}>{achievementToast}</Text>
+        <LinearGradient colors={['rgba(59,130,246,0.95)', 'rgba(16,185,129,0.95)']} style={styles.toastGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+          <Text style={styles.toastTitle}>ACHIEVEMENT UNLOCKED</Text>
+          <Text style={styles.toastText}>{achievementToast}</Text>
+        </LinearGradient>
       </Animated.View>
     );
   };
@@ -137,14 +122,7 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
           <Text style={styles.title}>TAPRUSH</Text>
           <TouchableOpacity
             style={styles.primaryBtn}
-            onPress={async () => {
-              try {
-                await wallet.connect();
-                await refreshCredits();
-              } catch (e) {
-                console.error('Connect error:', e);
-              }
-            }}
+            onPress={async () => { try { await wallet.connect(); await refreshCredits(); } catch {} }}
             disabled={wallet.loading}
             activeOpacity={0.86}
           >
@@ -159,16 +137,10 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
     return (
       <RoomJoiner
         onJoin={async (code) => {
-          setJoinError(null);
-          setJoinLoading(true);
-          try {
-            await match.joinRoom(code);
-            setUiMode('game');
-          } catch (err: any) {
-            setJoinError(err.message);
-          } finally {
-            setJoinLoading(false);
-          }
+          setJoinError(null); setJoinLoading(true);
+          try { await match.joinRoom(code); setUiMode('game'); }
+          catch (err: any) { setJoinError(err.message); }
+          finally { setJoinLoading(false); }
         }}
         onCancel={() => setUiMode('lobby')}
         error={joinError}
@@ -181,15 +153,7 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
   if (uiMode === 'leaderboard') return <Leaderboard onBack={() => setUiMode('lobby')} />;
 
   if (match.phase === 'waiting_room' && match.roomCode) {
-    return (
-      <RoomCreator
-        roomCode={match.roomCode}
-        onCancel={async () => {
-          await match.cancelRoom();
-          setUiMode('lobby');
-        }}
-      />
-    );
+    return <RoomCreator roomCode={match.roomCode} onCancel={async () => { await match.cancelRoom(); setUiMode('lobby'); }} />;
   }
 
   if (match.phase === 'queued') {
@@ -201,10 +165,7 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
           <ActivityIndicator size="large" color={palette.primary} />
           <TouchableOpacity
             style={styles.secondaryBtn}
-            onPress={async () => {
-              await match.leaveQueue();
-              setUiMode('lobby');
-            }}
+            onPress={async () => { await match.leaveQueue(); setUiMode('lobby'); }}
             activeOpacity={0.86}
           >
             <Text style={styles.secondaryText}>CANCEL</Text>
@@ -221,7 +182,11 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
         <View style={styles.card}>
           <Text style={styles.icon}>{isStill ? '🧊' : '📳'}</Text>
           <View style={styles.meterTrack}>
-            <View style={[styles.meterFill, isStill ? styles.meterGood : styles.meterBad]} />
+            <LinearGradient
+              colors={isStill ? [palette.success, palette.success + 'CC'] : [palette.danger, palette.danger + 'CC']}
+              style={styles.meterFill}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            />
           </View>
           <Text style={styles.meterLabel}>{isStill ? 'STEADY' : 'MOVE = LOSE'}</Text>
         </View>
@@ -233,7 +198,12 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
     return (
       <Pressable style={styles.drawScreen} onPress={match.handleTap}>
         <AmbientBackground tone="danger" />
-        <Animated.Text style={[styles.drawTitle, { transform: [{ scale: drawPop }] }]}>TAP!</Animated.Text>
+        <LinearGradient
+          colors={['rgba(59,130,246,0.15)', 'transparent']}
+          style={StyleSheet.absoluteFill}
+          start={{ x: 0.5, y: 0.3 }} end={{ x: 0.5, y: 0.8 }}
+        />
+        <Animated.Text style={[styles.drawTitle, { transform: [{ scale: drawPop }], textShadowColor: 'rgba(59,130,246,0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 30 }]}>TAP!</Animated.Text>
       </Pressable>
     );
   }
@@ -270,7 +240,14 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
       <View style={styles.screen}>
         <AmbientBackground tone={won ? 'cool' : 'danger'} />
         {renderAchievementToast()}
-        <View style={[styles.card, won ? styles.resultWin : styles.resultLose]}>
+        <LinearGradient
+          colors={won
+            ? ['rgba(59,130,246,0.12)', 'rgba(59,130,246,0.03)']
+            : ['rgba(255,71,87,0.12)', 'rgba(255,71,87,0.03)']
+          }
+          style={styles.resultCard}
+          start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}
+        >
           <View style={styles.resultHeader}>
             <Text style={styles.title}>{won ? 'WIN' : 'LOSE'}</Text>
             <TierBadge tier={tier} size="small" />
@@ -279,14 +256,14 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
           <Text style={styles.vs}>{deriveUsername(opponent || '')}</Text>
 
           <View style={styles.scoreRow}>
-            <View style={styles.scoreCol}>
+            <LinearGradient colors={[palette.panelSoft, palette.panelSoft + '80']} style={styles.scoreCol} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
               <Text style={styles.scoreTag}>YOU</Text>
               <Text style={styles.score}>{reaction !== null && reaction >= 0 ? `${Math.round(reaction)}ms` : '-'}</Text>
-            </View>
-            <View style={styles.scoreCol}>
+            </LinearGradient>
+            <LinearGradient colors={[palette.panelSoft, palette.panelSoft + '80']} style={styles.scoreCol} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
               <Text style={styles.scoreTag}>THEM</Text>
               <Text style={styles.score}>{opponentReaction !== null && opponentReaction >= 0 ? `${Math.round(opponentReaction)}ms` : '-'}</Text>
-            </View>
+            </LinearGradient>
           </View>
 
           {won && currentStreak >= 2 ? <Text style={styles.good}>{currentStreak}x STREAK 🔥</Text> : null}
@@ -294,32 +271,19 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
 
           <TouchableOpacity
             style={styles.primaryBtn}
-            onPress={async () => {
-              match.reset();
-              await refreshCredits();
-              setUiMode('game');
-              try {
-                await match.joinQueue();
-              } catch {
-                setUiMode('lobby');
-              }
-            }}
+            onPress={async () => { match.reset(); await refreshCredits(); setUiMode('game'); try { await match.joinQueue(); } catch { setUiMode('lobby'); } }}
             activeOpacity={0.86}
           >
             <Text style={styles.primaryBtnText}>REMATCH</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.secondaryBtn}
-            onPress={async () => {
-              match.reset();
-              await refreshCredits();
-              setUiMode('lobby');
-            }}
+            onPress={async () => { match.reset(); await refreshCredits(); setUiMode('lobby'); }}
             activeOpacity={0.86}
           >
             <Text style={styles.secondaryText}>LOBBY</Text>
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       </View>
     );
   }
@@ -332,11 +296,7 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
           <Text style={styles.title}>CANCELLED</Text>
           <TouchableOpacity
             style={styles.primaryBtn}
-            onPress={async () => {
-              match.reset();
-              await refreshCredits();
-              setUiMode('lobby');
-            }}
+            onPress={async () => { match.reset(); await refreshCredits(); setUiMode('lobby'); }}
             activeOpacity={0.86}
           >
             <Text style={styles.primaryBtnText}>LOBBY</Text>
@@ -351,31 +311,12 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
       playsRemaining={credits}
       walletAddress={wallet.publicKey || ''}
       onBack={onBack}
-      onFindRandom={async () => {
-        try {
-          setUiMode('game');
-          await match.joinQueue();
-        } catch {
-          setUiMode('lobby');
-        }
-      }}
-      onChallengeFreund={async () => {
-        try {
-          setUiMode('game');
-          await match.createRoom();
-        } catch {
-          setUiMode('lobby');
-        }
-      }}
+      onFindRandom={async () => { try { setUiMode('game'); await match.joinQueue(); } catch { setUiMode('lobby'); } }}
+      onChallengeFreund={async () => { try { setUiMode('game'); await match.createRoom(); } catch { setUiMode('lobby'); } }}
       onJoinWithCode={() => setUiMode('join_code')}
       onViewHistory={() => setUiMode('history')}
       onViewLeaderboard={() => setUiMode('leaderboard')}
-      onTopUp={async () => {
-        try {
-          const b = await topUpCredits();
-          setCredits(b);
-        } catch {}
-      }}
+      onTopUp={async () => { try { const b = await topUpCredits(); setCredits(b); } catch {} }}
       onRefreshCredits={refreshCredits}
     />
   );
@@ -384,53 +325,45 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg, justifyContent: 'center', padding: 18 },
   card: {
-    borderRadius: 22, borderWidth: 0,
-    backgroundColor: palette.panel, padding: 22, alignItems: 'center',
-    shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 4,
+    borderRadius: 14, backgroundColor: palette.panel, padding: 22, alignItems: 'center',
+    ...shadows.medium,
   },
-  title: { color: palette.text, fontFamily: fonts.display, fontSize: fs(44), lineHeight: 46 },
-  small: { marginTop: 8, fontSize: fs(40) },
-  icon: { fontSize: fs(40), marginBottom: 10 },
+  resultCard: {
+    borderRadius: 14, padding: 22, alignItems: 'center',
+    ...shadows.medium,
+  },
+  title: { color: palette.text, fontFamily: fonts.display, fontSize: 44, lineHeight: 46 },
+  small: { marginTop: 8, fontSize: 40 },
+  icon: { fontSize: 40, marginBottom: 10 },
   primaryBtn: {
-    marginTop: 12, width: '100%', borderRadius: 24,
+    marginTop: 12, width: '100%', borderRadius: 14,
     backgroundColor: palette.primaryStrong, paddingVertical: 14, alignItems: 'center',
-    shadowColor: palette.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
+    ...shadows.glow(palette.primary),
   },
-  primaryBtnText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: fs(24), lineHeight: 26 },
+  primaryBtnText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 24, lineHeight: 26 },
   secondaryBtn: {
-    marginTop: 8, width: '100%', borderRadius: 20, borderWidth: 0,
-    backgroundColor: palette.panelSoft,
-    paddingVertical: 11, alignItems: 'center',
+    marginTop: 8, width: '100%', borderRadius: 12,
+    backgroundColor: palette.panelSoft, paddingVertical: 11, alignItems: 'center',
   },
-  secondaryText: { color: palette.muted, fontFamily: fonts.body, fontSize: fs(14) },
+  secondaryText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
   meterTrack: {
     marginTop: 4, width: '100%', height: 18, borderRadius: 10,
-    backgroundColor: palette.bgAlt, borderWidth: 1, borderColor: palette.panelStroke, overflow: 'hidden',
+    backgroundColor: palette.bgAlt, overflow: 'hidden',
   },
   meterFill: { height: '100%', width: '100%' },
-  meterGood: { backgroundColor: palette.success },
-  meterBad: { backgroundColor: palette.danger },
-  meterLabel: { marginTop: 8, color: palette.text, fontFamily: fonts.display, fontSize: fs(28) },
-  drawScreen: { flex: 1, backgroundColor: 'rgba(255, 45, 111, 0.1)', justifyContent: 'center', alignItems: 'center' },
-  drawTitle: { color: palette.text, fontFamily: fonts.display, fontSize: fs(120), lineHeight: 122 },
-  taunt: { marginTop: 2, color: palette.muted, fontFamily: fonts.mono, fontSize: fs(12) },
-  vs: { marginTop: 8, color: palette.muted, fontFamily: fonts.body, fontSize: fs(15) },
+  meterLabel: { marginTop: 8, color: palette.text, fontFamily: fonts.display, fontSize: 28 },
+  drawScreen: { flex: 1, backgroundColor: 'rgba(59,130,246,0.12)', justifyContent: 'center', alignItems: 'center' },
+  drawTitle: { color: palette.text, fontFamily: fonts.display, fontSize: 120, lineHeight: 122 },
+  taunt: { marginTop: 2, color: palette.muted, fontFamily: fonts.mono, fontSize: 12 },
+  vs: { marginTop: 8, color: palette.muted, fontFamily: fonts.body, fontSize: 15 },
   resultHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   scoreRow: { marginTop: 8, width: '100%', flexDirection: 'row', gap: 8 },
-  scoreCol: {
-    flex: 1, borderRadius: 14, borderWidth: 0,
-    backgroundColor: palette.panelSoft, paddingVertical: 10, alignItems: 'center',
-  },
-  scoreTag: { color: palette.muted, fontFamily: fonts.mono, fontSize: fs(10) },
-  score: { color: palette.text, fontFamily: fonts.display, fontSize: fs(23) },
-  good: { marginTop: 6, color: palette.success, fontFamily: fonts.mono, fontSize: fs(12) },
-  resultWin: { borderColor: 'rgba(34, 197, 94, 0.4)' },
-  resultLose: { borderColor: 'rgba(239, 68, 68, 0.4)' },
-  toast: {
-    position: 'absolute', top: 60, left: 18, right: 18, zIndex: 100,
-    borderRadius: 16, backgroundColor: 'rgba(255, 45, 111, 0.95)',
-    padding: 14, alignItems: 'center',
-  },
-  toastTitle: { color: '#fff', fontFamily: fonts.mono, fontSize: fs(10), marginBottom: 4 },
-  toastText: { color: '#fff', fontFamily: fonts.display, fontSize: fs(16), textAlign: 'center' },
+  scoreCol: { flex: 1, borderRadius: 14, paddingVertical: 10, alignItems: 'center' },
+  scoreTag: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10 },
+  score: { color: palette.text, fontFamily: fonts.display, fontSize: 23 },
+  good: { marginTop: 6, color: palette.success, fontFamily: fonts.mono, fontSize: 12 },
+  toast: { position: 'absolute', top: 60, left: 18, right: 18, zIndex: 100 },
+  toastGrad: { borderRadius: 16, padding: 14, alignItems: 'center' },
+  toastTitle: { color: '#fff', fontFamily: fonts.mono, fontSize: 10, marginBottom: 4 },
+  toastText: { color: '#fff', fontFamily: fonts.display, fontSize: 16, textAlign: 'center' },
 });

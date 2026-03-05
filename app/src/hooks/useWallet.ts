@@ -49,8 +49,12 @@ export function useWallet() {
         const mockAddress = generateMockWallet();
         console.log('[useWallet] mock address:', mockAddress);
         setPublicKey(mockAddress);
-        const token = await devLogin(mockAddress);
-        console.log('[useWallet] auth token:', token);
+        try {
+          const token = await devLogin(mockAddress);
+          console.log('[useWallet] auth token:', token);
+        } catch (e) {
+          console.log('[useWallet] devLogin failed (backend offline), continuing with mock wallet');
+        }
         setConnected(true);
         return;
       }
@@ -118,8 +122,12 @@ export function useWallet() {
         try {
           const mockAddress = generateMockWallet();
           setPublicKey(mockAddress);
-          const token = await devLogin(mockAddress);
-          console.log('[useWallet] fallback auth token:', token);
+          try {
+            const token = await devLogin(mockAddress);
+            console.log('[useWallet] fallback auth token:', token);
+          } catch (e) {
+            console.log('[useWallet] devLogin failed (backend offline), continuing offline');
+          }
           setConnected(true);
           return;
         } catch (fallbackErr) {
