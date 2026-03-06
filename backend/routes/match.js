@@ -2,8 +2,47 @@ const express = require('express');
 const { validateTap, resolveMatch, TAP_TIMEOUT_MS } = require('../services/arbitrator');
 const { settleMatch, cancelMatch } = require('../services/settler');
 const { generateDrawTime } = require('../services/draw-timer');
+const { isBot } = require('../services/matchmaker');
 
 const router = express.Router();
+
+/**
+ * If one player in the match is a bot and it's their turn to tap,
+ * simulate a bot tap with a random human-like reaction time.
+ */
+function handleBotTap(db, match) {
+  const now = Date.now();
+  const botIsPlayerOne = isBot(match.player_one);
+  const botIsPlayerTwo = isBot(match.player_two);
+
+  if (!botIsPlayerOne && !botIsPlayerTwo) return; // No bot in this match
+
+  // Only act when draw has fired
+  if (match.state !== 'DRAW_FIRED') return;
+
+  // Bot reaction: random 150–400ms after draw fired
+  const botDelay = 150 + Math.floor(Math.random() * 250);
+  const timeSinceDraw = now - match.draw_fired_at;
+
+  // Wait until enough time has passed to simulate the bot's reaction
+  if (timeSinceDraw < botDelay) return;
+
+  if (botIsPlayerOne && match.player_one_tap_at === null) {
+    db.prepare(`
+      UPDATE matches SET player_one_tap_at = ?, player_one_reaction_ms = ?
+      WHERE id = ?
+    `).run(now, botDelay, match.id);
+    tryResolve(db, match.id);
+  }
+
+  if (botIsPlayerTwo && match.player_two_tap_at === null) {
+    db.prepare(`
+      UPDATE matches SET player_two_tap_at = ?, player_two_reaction_ms = ?
+      WHERE id = ?
+    `).run(now, botDelay, match.id);
+    tryResolve(db, match.id);
+  }
+}
 
 // GET /match/:id/state — polls for match phase
 router.get('/:id/state', (req, res) => {
@@ -44,11 +83,11 @@ router.get('/:id/state', (req, res) => {
     case 'STANDOFF':
       // Check if it's time to fire the draw
       if (match.draw_time_ms && now >= match.draw_time_ms) {
-        const result = db.prepare(
+        const fireResult = db.prepare(
           "UPDATE matches SET state = 'DRAW_FIRED', draw_fired_at = ? WHERE id = ? AND state = 'STANDOFF'"
         ).run(now, matchId);
 
-        if (result.changes > 0) {
+        if (fireResult.changes > 0) {
           return res.json({
             phase: 'draw',
             drawFiredAt: now,
@@ -61,12 +100,32 @@ router.get('/:id/state', (req, res) => {
         serverTime: now,
       });
 
-    case 'DRAW_FIRED':
+    case 'DRAW_FIRED': {
+      // Trigger bot tap if applicable
+      handleBotTap(db, match);
+      // Re-read match in case bot tap resolved it
+      const updated = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+      if (updated.state === 'RESOLVED' || updated.state === 'SETTLED') {
+        const isW = updated.winner === wallet;
+        const isP1 = updated.player_one === wallet;
+        const myR = isP1 ? updated.player_one_reaction_ms : updated.player_two_reaction_ms;
+        const opR = isP1 ? updated.player_two_reaction_ms : updated.player_one_reaction_ms;
+        const opp = isP1 ? updated.player_two : updated.player_one;
+        const ps = db.prepare('SELECT current_streak, max_streak, best_reaction_ms, wins, losses, xp, tier FROM players WHERE wallet = ?').get(wallet);
+        const ra = db.prepare('SELECT achievement_id FROM achievements WHERE wallet = ? AND unlocked_at > ? ORDER BY unlocked_at DESC').all(wallet, Date.now() - 10000);
+        return res.json({
+          phase: 'result', winner: updated.winner, won: isW, reaction: myR, opponentReaction: opR, opponent: opp,
+          forfeitReason: updated.forfeit_reason, currentStreak: ps?.current_streak || 0, maxStreak: ps?.max_streak || 0,
+          bestReaction: ps?.best_reaction_ms, wins: ps?.wins || 0, losses: ps?.losses || 0, xp: ps?.xp || 0,
+          tier: ps?.tier || 'BRONZE', newAchievements: ra.map(a => a.achievement_id), serverTime: now,
+        });
+      }
       return res.json({
         phase: 'draw',
         drawFiredAt: match.draw_fired_at,
         serverTime: now,
       });
+    }
 
     case 'RESOLVED':
     case 'SETTLED': {

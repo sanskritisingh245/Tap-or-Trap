@@ -1,6 +1,38 @@
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { generateDrawTime } = require('./draw-timer');
 const { deductCredits } = require('../solana/program');
+
+// Bot wallet prefix — any wallet starting with this is a bot
+const BOT_WALLET_PREFIX = 'BOT_';
+const BOT_MATCH_DELAY_MS = 5000; // Wait 5s before spawning a bot
+
+/**
+ * Checks if a wallet belongs to a bot.
+ */
+function isBot(wallet) {
+  return wallet && wallet.startsWith(BOT_WALLET_PREFIX);
+}
+
+/**
+ * Generates a unique bot wallet address.
+ */
+function generateBotWallet() {
+  return BOT_WALLET_PREFIX + crypto.randomBytes(20).toString('hex');
+}
+
+/**
+ * Ensures a bot player record exists in the database.
+ */
+function ensureBotPlayer(db, botWallet) {
+  const existing = db.prepare('SELECT wallet FROM players WHERE wallet = ?').get(botWallet);
+  if (!existing) {
+    db.prepare(`
+      INSERT INTO players (wallet, credits, last_seen, wins, losses, xp, tier, total_matches)
+      VALUES (?, 9999, ?, 0, 0, 0, 'BRONZE', 0)
+    `).run(botWallet, Date.now());
+  }
+}
 
 /**
  * Creates a match record in the database for two paired players.
@@ -37,37 +69,56 @@ function createMatch(db, playerOne, playerTwo) {
  */
 function pairFromQueue(db) {
   const players = db.prepare(
-    'SELECT wallet FROM queue ORDER BY joined_at ASC LIMIT 2'
+    'SELECT wallet, joined_at FROM queue ORDER BY joined_at ASC LIMIT 2'
   ).all();
 
-  if (players.length < 2) return null;
+  if (players.length >= 2) {
+    // Two real players — pair them
+    const playerOne = players[0].wallet;
+    const playerTwo = players[1].wallet;
+    db.prepare('DELETE FROM queue WHERE wallet IN (?, ?)').run(playerOne, playerTwo);
+    const match = createMatch(db, playerOne, playerTwo);
+    deductForMatch(db, playerOne, playerTwo, match);
+    return match;
+  }
 
-  const playerOne = players[0].wallet;
-  const playerTwo = players[1].wallet;
+  // Only one player in queue — check if they've waited long enough for a bot
+  if (players.length === 1) {
+    const player = players[0];
+    const waitTime = Date.now() - player.joined_at;
 
-  // Remove both from queue
-  db.prepare('DELETE FROM queue WHERE wallet IN (?, ?)').run(playerOne, playerTwo);
+    if (waitTime >= BOT_MATCH_DELAY_MS) {
+      const botWallet = generateBotWallet();
+      ensureBotPlayer(db, botWallet);
 
-  // Create the match
-  const match = createMatch(db, playerOne, playerTwo);
+      db.prepare('DELETE FROM queue WHERE wallet = ?').run(player.wallet);
+      const match = createMatch(db, player.wallet, botWallet);
+      deductForMatch(db, player.wallet, botWallet, match);
+      console.log(`[BOT] Paired ${player.wallet.slice(0, 8)}... with bot ${botWallet.slice(0, 12)}... (waited ${waitTime}ms)`);
+      return match;
+    }
+  }
 
-  // Trigger on-chain credit deduction (skip in dev mode if no program deployed)
+  return null;
+}
+
+/**
+ * Deducts credits for a match (on-chain or dev mode).
+ */
+function deductForMatch(db, playerOne, playerTwo, match) {
   if (process.env.SKIP_ONCHAIN !== 'true') {
     deductCredits(playerOne, playerTwo, match.id).catch((err) => {
       console.error(`Failed to deduct credits for match ${match.id}:`, err.message);
       db.prepare("UPDATE matches SET state = 'CANCELLED' WHERE id = ?").run(match.id);
       const now = Date.now();
-      db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerOne, now);
-      db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerTwo, now);
+      if (!isBot(playerOne)) db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerOne, now);
+      if (!isBot(playerTwo)) db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerTwo, now);
     });
   } else {
-    // Dev mode: deduct 1 credit from each player in DB
-    db.prepare('UPDATE players SET credits = credits - 1 WHERE wallet = ? AND credits > 0').run(playerOne);
-    db.prepare('UPDATE players SET credits = credits - 1 WHERE wallet = ? AND credits > 0').run(playerTwo);
-    console.log(`[DEV] Deducted 1 credit each for match ${match.id}`);
+    if (!isBot(playerOne)) db.prepare('UPDATE players SET credits = credits - 1 WHERE wallet = ? AND credits > 0').run(playerOne);
+    if (!isBot(playerTwo)) db.prepare('UPDATE players SET credits = credits - 1 WHERE wallet = ? AND credits > 0').run(playerTwo);
+    console.log(`[DEV] Deducted credits for match ${match.id}`);
   }
-
-  return match;
 }
 
 /**
@@ -118,4 +169,4 @@ function stopMatchmaker() {
   }
 }
 
-module.exports = { createMatch, pairFromQueue, pairFromRoom, startMatchmaker, stopMatchmaker };
+module.exports = { createMatch, pairFromQueue, pairFromRoom, startMatchmaker, stopMatchmaker, isBot, BOT_WALLET_PREFIX };

@@ -131,6 +131,14 @@ router.get('/leaderboard', (req, res) => {
   res.json({ leaderboard, myRank: myRank >= 0 ? myRank + 1 : null });
 });
 
+// Simulated players for dev/demo mode (shown when no real players are online)
+const DEV_PLAYERS = [
+  { wallet: 'Sim1_' + 'A'.repeat(39), wins: 12, losses: 5, xp: 340, tier: 'SILVER', totalMatches: 17, bestReaction: 142 },
+  { wallet: 'Sim2_' + 'B'.repeat(39), wins: 8, losses: 3, xp: 220, tier: 'SILVER', totalMatches: 11, bestReaction: 168 },
+  { wallet: 'Sim3_' + 'C'.repeat(39), wins: 3, losses: 7, xp: 80, tier: 'BRONZE', totalMatches: 10, bestReaction: 205 },
+  { wallet: 'Sim4_' + 'D'.repeat(39), wins: 25, losses: 8, xp: 680, tier: 'GOLD', totalMatches: 33, bestReaction: 118 },
+];
+
 // GET /stats/online — recently active players (seen in last 5 min)
 router.get('/online', (req, res) => {
   const db = req.app.locals.db;
@@ -145,17 +153,22 @@ router.get('/online', (req, res) => {
     LIMIT 20
   `).all(cutoff, wallet);
 
-  res.json({
-    players: players.map(p => ({
-      wallet: p.wallet,
-      wins: p.wins,
-      losses: p.losses,
-      xp: p.xp,
-      tier: p.tier,
-      totalMatches: p.total_matches,
-      bestReaction: p.best_reaction_ms,
-    })),
-  });
+  let result = players.map(p => ({
+    wallet: p.wallet,
+    wins: p.wins,
+    losses: p.losses,
+    xp: p.xp,
+    tier: p.tier,
+    totalMatches: p.total_matches,
+    bestReaction: p.best_reaction_ms,
+  }));
+
+  // In dev mode, add simulated players when no real players are online
+  if (process.env.SKIP_ONCHAIN === 'true' && result.length === 0) {
+    result = DEV_PLAYERS;
+  }
+
+  res.json({ players: result });
 });
 
 // GET /stats/achievements — player's achievements

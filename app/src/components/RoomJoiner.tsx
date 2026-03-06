@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AmbientBackground } from './AmbientBackground';
-import { fonts, palette, shadows } from '../theme/ui';
+import { Ionicons } from '@expo/vector-icons';
+import { fonts } from '../theme/ui';
 
 interface RoomJoinerProps {
   onJoin: (code: string) => void;
@@ -18,20 +18,27 @@ export function RoomJoiner({ onJoin, onCancel, error, loading }: RoomJoinerProps
 
   return (
     <View style={styles.container}>
-      <AmbientBackground tone="cool" />
+      <LinearGradient
+        colors={['#E8DDCF', '#D8CCC0', '#8A8795', '#23283F']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      />
       <View style={styles.card}>
-        <Text style={styles.head}>JOIN</Text>
+        <Ionicons name="enter-outline" size={28} color="#DDBA7C" style={{ marginBottom: 4 }} />
+        <Text style={styles.head}>JOIN ROOM</Text>
+        <Text style={styles.label}>Enter the 6-character code from your friend</Text>
         <TextInput
           style={[styles.input, ready && styles.inputReady]}
           value={code}
           onChangeText={(t) => setCode(t.toUpperCase().slice(0, 6))}
           placeholder="A1B2C3"
-          placeholderTextColor="rgba(107,122,153,0.55)"
+          placeholderTextColor="rgba(237,225,207,0.25)"
           autoCorrect={false}
           autoCapitalize="characters"
           maxLength={6}
           autoFocus
-          selectionColor={palette.primary}
+          selectionColor="#62EBFF"
         />
         {error ? <Text style={styles.err}>{error}</Text> : null}
 
@@ -45,15 +52,15 @@ export function RoomJoiner({ onJoin, onCancel, error, loading }: RoomJoinerProps
           <Animated.View style={{ transform: [{ scale: goBtnScale }] }}>
             {ready ? (
               <LinearGradient
-                colors={['#3B82F6', '#2563EB']}
-                style={[styles.join, shadows.glow(palette.primary)]}
+                colors={['#2E3762', '#171E40']}
+                style={styles.join}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               >
-                <Text style={styles.joinText}>{loading ? '...' : 'GO'}</Text>
+                <Text style={styles.joinText}>{loading ? '...' : 'JOIN'}</Text>
               </LinearGradient>
             ) : (
               <View style={[styles.join, styles.joinOff]}>
-                <Text style={styles.joinText}>GO</Text>
+                <Text style={[styles.joinText, { opacity: 0.4 }]}>JOIN</Text>
               </View>
             )}
           </Animated.View>
@@ -68,30 +75,68 @@ export function RoomJoiner({ onJoin, onCancel, error, loading }: RoomJoinerProps
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.bg, justifyContent: 'center', padding: 18 },
+  container: { flex: 1, justifyContent: 'center', padding: 18 },
   card: {
-    borderRadius: 14, backgroundColor: palette.panel, padding: 22, alignItems: 'center',
-    ...shadows.medium,
+    borderRadius: 16,
+    backgroundColor: 'rgba(39,42,59,0.9)',
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
-  head: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: 12, letterSpacing: 1.2 },
+  head: {
+    color: '#EED8B6',
+    fontFamily: fonts.display,
+    fontSize: 22,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  label: {
+    color: 'rgba(237,232,227,0.55)',
+    fontFamily: fonts.body,
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
   input: {
-    width: '100%', marginTop: 12, borderRadius: 16,
-    borderWidth: 1, borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft, paddingVertical: 14,
-    textAlign: 'center', color: palette.text,
-    fontFamily: fonts.mono, fontSize: 34, letterSpacing: 8,
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 16,
+    textAlign: 'center',
+    color: '#EDE1CF',
+    fontFamily: fonts.mono,
+    fontSize: 34,
+    letterSpacing: 8,
   },
-  inputReady: { borderColor: palette.primaryStrong },
-  err: { marginTop: 8, color: palette.danger, fontFamily: fonts.body, fontSize: 13 },
+  inputReady: {
+    borderColor: 'rgba(98,235,255,0.5)',
+    backgroundColor: 'rgba(98,235,255,0.06)',
+  },
+  err: { marginTop: 8, color: '#FF4757', fontFamily: fonts.body, fontSize: 13 },
   join: {
-    marginTop: 12, width: '100%', borderRadius: 14,
-    paddingVertical: 12, alignItems: 'center',
+    marginTop: 14,
+    width: '100%',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(107,110,207,0.7)',
   },
-  joinOff: { backgroundColor: palette.panelStroke },
-  joinText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 26 },
+  joinOff: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  joinText: { color: '#EED8B6', fontFamily: fonts.display, fontSize: 26 },
   back: {
-    marginTop: 8, width: '100%', borderRadius: 12,
-    backgroundColor: palette.panelSoft, paddingVertical: 10, alignItems: 'center',
+    marginTop: 10,
+    width: '100%',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 11,
+    alignItems: 'center',
   },
-  backText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  backText: { color: 'rgba(237,225,207,0.5)', fontFamily: fonts.body, fontSize: 14 },
 });

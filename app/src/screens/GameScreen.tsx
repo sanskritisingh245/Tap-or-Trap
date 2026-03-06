@@ -48,10 +48,12 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
   const [showCountdown, setShowCountdown] = useState(false);
   const [taunt, setTaunt] = useState('');
   const [achievementToast, setAchievementToast] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const pulse = useRef(new Animated.Value(1)).current;
   const drawPop = useRef(new Animated.Value(1)).current;
   const toastOpacity = useRef(new Animated.Value(0)).current;
+  const errorOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const p = Animated.loop(Animated.sequence([
@@ -99,6 +101,26 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
     try { const balance = await getCreditsBalance(); setCredits(balance); return balance; }
     catch { setCredits(0); return 0; }
   }, []);
+
+  const showError = useCallback((msg: string) => {
+    setErrorMsg(msg);
+    Animated.sequence([
+      Animated.timing(errorOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.delay(3000),
+      Animated.timing(errorOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start(() => setErrorMsg(null));
+  }, []);
+
+  const renderErrorToast = () => {
+    if (!errorMsg) return null;
+    return (
+      <Animated.View style={[styles.toast, { opacity: errorOpacity }]} pointerEvents="none">
+        <View style={[styles.toastGrad, { backgroundColor: 'rgba(255,71,87,0.95)' }]}>
+          <Text style={styles.toastText}>{errorMsg}</Text>
+        </View>
+      </Animated.View>
+    );
+  };
 
   const renderAchievementToast = () => {
     if (!achievementToast) return null;
@@ -162,16 +184,24 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
   if (match.phase === 'queued') {
     return (
       <View style={styles.screen}>
-        <AmbientBackground tone="cool" />
-        <Animated.View style={[styles.card, { transform: [{ scale: pulse }] }]}>
-          <Text style={styles.icon}>🎯</Text>
-          <ActivityIndicator size="large" color={palette.primary} />
+        <LinearGradient
+          colors={['#E8DDCF', '#D8CCC0', '#8A8795', '#23283F']}
+          style={StyleSheet.absoluteFill}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+        />
+        <Animated.View style={[styles.card, { transform: [{ scale: pulse }], backgroundColor: 'rgba(39,42,59,0.9)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }]}>
+          <ActivityIndicator size="large" color="#62EBFF" style={{ marginBottom: 12 }} />
+          <Text style={[styles.title, { fontSize: 28, color: '#EED8B6' }]}>SEARCHING</Text>
+          <Text style={{ color: 'rgba(237,232,227,0.6)', fontFamily: fonts.body, fontSize: 14, marginTop: 4 }}>
+            Looking for an opponent...
+          </Text>
           <TouchableOpacity
-            style={styles.secondaryBtn}
+            style={[styles.secondaryBtn, { backgroundColor: 'rgba(255,71,87,0.12)', borderWidth: 1, borderColor: 'rgba(255,71,87,0.25)', marginTop: 20 }]}
             onPress={async () => { await match.leaveQueue(); setUiMode('lobby'); }}
             activeOpacity={0.86}
           >
-            <Text style={styles.secondaryText}>CANCEL</Text>
+            <Text style={[styles.secondaryText, { color: '#FF4757' }]}>CANCEL</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -310,18 +340,27 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
   }
 
   return (
-    <LobbyMenu
-      playsRemaining={credits}
-      walletAddress={wallet.publicKey || ''}
-      onBack={onBack}
-      onFindRandom={async () => { try { setUiMode('game'); await match.joinQueue(); } catch { setUiMode('lobby'); } }}
-      onChallengeFreund={async () => { try { setUiMode('game'); await match.createRoom(); } catch { setUiMode('lobby'); } }}
-      onJoinWithCode={() => setUiMode('join_code')}
-      onViewHistory={() => setUiMode('history')}
-      onViewLeaderboard={() => setUiMode('leaderboard')}
-      onTopUp={async () => { try { const b = await topUpCredits(); setCredits(b); } catch {} }}
-      onRefreshCredits={refreshCredits}
-    />
+    <>
+      {renderErrorToast()}
+      <LobbyMenu
+        playsRemaining={credits}
+        walletAddress={wallet.publicKey || ''}
+        onBack={onBack}
+        onFindRandom={async () => {
+          try { setErrorMsg(null); await match.joinQueue(); }
+          catch (err: any) { showError(err.message || 'Failed to join queue'); }
+        }}
+        onChallengeFreund={async () => {
+          try { setErrorMsg(null); await match.createRoom(); }
+          catch (err: any) { showError(err.message || 'Failed to create room'); }
+        }}
+        onJoinWithCode={() => setUiMode('join_code')}
+        onViewHistory={() => setUiMode('history')}
+        onViewLeaderboard={() => setUiMode('leaderboard')}
+        onTopUp={async () => { try { const b = await topUpCredits(); setCredits(b); } catch {} }}
+        onRefreshCredits={refreshCredits}
+      />
+    </>
   );
 }
 

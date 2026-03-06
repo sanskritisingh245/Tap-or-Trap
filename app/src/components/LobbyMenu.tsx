@@ -172,19 +172,47 @@ export function LobbyMenu({
                 end={{ x: 1, y: 1 }}
               >
                 <Text style={styles.findMatchText}>FIND MATCH</Text>
-                <Text style={styles.findMatchSub}>Estimated wait time: &lt;10s</Text>
+                <Text style={styles.findMatchSub}>Random opponent matchmaking</Text>
               </LinearGradient>
             </Animated.View>
           </Pressable>
         )}
 
-        <TouchableOpacity style={styles.filtersBtn} activeOpacity={0.8} onPress={onJoinWithCode}>
-          <Ionicons name="search" size={20} color="#DDBA7C" />
-          <Text style={styles.filtersBtnText}>Search Filters</Text>
-        </TouchableOpacity>
+        {/* Friend Challenge Buttons */}
+        <View style={styles.friendRow}>
+          <TouchableOpacity style={styles.friendBtn} activeOpacity={0.8} onPress={onChallengeFreund}>
+            <LinearGradient
+              colors={['#2E3762', '#1E2847']}
+              style={styles.friendBtnGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#62EBFF" />
+              <Text style={styles.friendBtnText}>CREATE ROOM</Text>
+              <Text style={styles.friendBtnSub}>Get a code to share</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.friendBtn} activeOpacity={0.8} onPress={onJoinWithCode}>
+            <LinearGradient
+              colors={['#2E3762', '#1E2847']}
+              style={styles.friendBtnGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="enter-outline" size={20} color="#DDBA7C" />
+              <Text style={styles.friendBtnText}>JOIN CODE</Text>
+              <Text style={styles.friendBtnSub}>Enter friend's code</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
 
         {/* Online Players */}
         <View style={styles.onlineSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.sectionTitle}>PLAYERS ONLINE</Text>
+            <Text style={styles.sectionCount}>{onlinePlayers.length}</Text>
+          </View>
           {displayPlayers.length > 0 ? (
             displayPlayers.map((player) => {
               const name = deriveUsername(player.wallet);
@@ -209,7 +237,7 @@ export function LobbyMenu({
                       <Text style={styles.playerRowLevel}>Lv. {lvl}</Text>
                     </View>
                   </View>
-                  <TouchableOpacity style={styles.challengeBtn} onPress={onChallengeFreund} activeOpacity={0.7}>
+                  <TouchableOpacity style={styles.challengeBtn} onPress={onFindRandom} activeOpacity={0.7}>
                     <LinearGradient
                       colors={['#D4A574', '#B8874A']}
                       style={styles.challengeBtnGrad}
@@ -224,7 +252,9 @@ export function LobbyMenu({
             })
           ) : (
             <View style={styles.emptyRow}>
+              <Ionicons name="people-outline" size={28} color="rgba(237,225,207,0.4)" style={{ marginBottom: 6 }} />
               <Text style={styles.emptyText}>No opponents online right now</Text>
+              <Text style={styles.emptyHint}>Use CREATE ROOM to invite a friend!</Text>
             </View>
           )}
         </View>
@@ -331,22 +361,63 @@ const styles = StyleSheet.create({
   },
   refillText: { color: '#1A1410', fontFamily: fonts.display, fontSize: 26 },
 
-  filtersBtn: {
-    height: 44,
+  friendRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 10,
-    backgroundColor: 'rgba(48,52,73,0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 10,
-    paddingHorizontal: 22,
+    width: '100%',
     marginBottom: 18,
   },
-  filtersBtnText: { color: '#DCC9AA', fontFamily: fonts.display, fontSize: 18 },
+  friendBtn: {
+    flex: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  friendBtnGrad: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(107,110,207,0.5)',
+    gap: 4,
+  },
+  friendBtnText: {
+    color: '#EED8B6',
+    fontFamily: fonts.display,
+    fontSize: 15,
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  friendBtnSub: {
+    color: 'rgba(237,232,227,0.55)',
+    fontFamily: fonts.body,
+    fontSize: 11,
+  },
 
   onlineSection: { width: '100%', marginBottom: 14 },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  onlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#34D399',
+  },
+  sectionTitle: {
+    color: 'rgba(237,225,207,0.7)',
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    letterSpacing: 1.2,
+  },
+  sectionCount: {
+    color: 'rgba(237,225,207,0.45)',
+    fontFamily: fonts.mono,
+    fontSize: 11,
+  },
 
   playerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -375,12 +446,14 @@ const styles = StyleSheet.create({
   emptyRow: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(47,50,70,0.5)',
-    paddingVertical: 16,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(47,50,70,0.3)',
+    paddingVertical: 24,
     alignItems: 'center',
   },
-  emptyText: { color: 'rgba(237,225,207,0.85)', fontFamily: fonts.body, fontSize: 14 },
+  emptyText: { color: 'rgba(237,225,207,0.7)', fontFamily: fonts.body, fontSize: 14 },
+  emptyHint: { color: 'rgba(237,225,207,0.4)', fontFamily: fonts.body, fontSize: 12, marginTop: 4 },
 
   utilityRow: { flexDirection: 'row', gap: 10, width: '100%' },
   utilityBtn: {
