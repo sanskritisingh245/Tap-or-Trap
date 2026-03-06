@@ -5,10 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { fonts, palette } from '../theme/ui';
 
 const TABS = [
-  { key: 'home', label: 'Casino', icon: 'game-controller' as const },
+  { key: 'home', label: 'Home', icon: 'game-controller' as const },
   { key: 'missions', label: 'Rewards', icon: 'gift' as const },
-  { key: 'fairness', label: 'Provably', icon: 'shield-checkmark' as const },
-  { key: 'livebets', label: 'Live', icon: 'pulse' as const },
   { key: 'settings', label: 'Profile', icon: 'person' as const },
 ] as const;
 

@@ -121,12 +121,6 @@ export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenPro
             <Text style={styles.actionText}>Top Up Credits</Text>
             <Text style={styles.actionArrow}>→</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.actionRow} onPress={() => onNavigate('fairness')} activeOpacity={0.7}>
-            <Text style={styles.actionIcon}>⛓</Text>
-            <Text style={styles.actionText}>Provably Fair</Text>
-            <Text style={styles.actionArrow}>→</Text>
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.disconnectBtn} onPress={handleDisconnect} activeOpacity={0.8}>

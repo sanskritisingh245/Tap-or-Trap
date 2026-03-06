@@ -34,20 +34,6 @@ export const palette = {
 
 export const gameColors = {
   taprush:  '#2EE5F6',  // cyan
-  coinflip: '#FFB800',  // gold
-  dice:     '#2EE5F6',  // cyan
-  mines:    '#FF4757',  // red
-  crash:    '#B983FF',  // purple
-  plinko:   '#F97316',  // orange
-  limbo:    '#EC4899',  // pink
-  keno:     '#14B8A6',  // teal
-  wheel:    '#FACC15',  // yellow
-  blackjack:'#10B981',  // emerald
-  roulette: '#EF4444',  // red classic
-  hilo:     '#6366F1',  // indigo
-  tower:    '#F59E0B',  // amber
-  slots:    '#E879F9',  // fuchsia
-  dragontower: '#22D3EE', // cyan-400
 };
 
 export const fonts = {
@@ -66,27 +52,9 @@ export const gradients = {
 
   // Game header gradients
   taprush:  ['rgba(46,229,246,0.10)', 'rgba(46,229,246,0.03)', 'transparent'],
-  coinflip: ['rgba(255,184,0,0.10)', 'rgba(255,184,0,0.03)', 'transparent'],
-  dice:     ['rgba(46,229,246,0.10)', 'rgba(46,229,246,0.03)', 'transparent'],
-  mines:    ['rgba(255,71,87,0.10)', 'rgba(255,71,87,0.03)', 'transparent'],
-  crash:    ['rgba(185,131,255,0.10)', 'rgba(185,131,255,0.03)', 'transparent'],
 
   // Card accent gradients
   cardTaprush:  ['#1A2C38', 'rgba(46,229,246,0.08)'],
-  cardCoinflip: ['#1A2C38', 'rgba(255,184,0,0.08)'],
-  cardDice:     ['#1A2C38', 'rgba(46,229,246,0.08)'],
-  cardMines:    ['#1A2C38', 'rgba(255,71,87,0.08)'],
-  cardCrash:    ['#1A2C38', 'rgba(185,131,255,0.08)'],
-  cardPlinko:   ['#1A2C38', 'rgba(249,115,22,0.08)'],
-  cardLimbo:    ['#1A2C38', 'rgba(236,72,153,0.08)'],
-  cardKeno:     ['#1A2C38', 'rgba(20,184,166,0.08)'],
-  cardWheel:    ['#1A2C38', 'rgba(250,204,21,0.08)'],
-  cardBlackjack:['#1A2C38', 'rgba(16,185,129,0.08)'],
-  cardRoulette: ['#1A2C38', 'rgba(239,68,68,0.08)'],
-  cardHilo:     ['#1A2C38', 'rgba(99,102,241,0.08)'],
-  cardTower:    ['#1A2C38', 'rgba(245,158,11,0.08)'],
-  cardSlots:    ['#1A2C38', 'rgba(232,121,249,0.08)'],
-  cardDragontower: ['#1A2C38', 'rgba(34,211,238,0.08)'],
 
   // Button gradients
   primaryBtn:  ['#3B82F6', '#2563EB'],

@@ -248,6 +248,21 @@ export async function getAchievements(): Promise<Achievement[]> {
   return data.achievements;
 }
 
+export interface OnlinePlayer {
+  wallet: string;
+  wins: number;
+  losses: number;
+  xp: number;
+  tier: Tier;
+  totalMatches: number;
+  bestReaction: number | null;
+}
+
+export async function getOnlinePlayers(): Promise<OnlinePlayer[]> {
+  const data = await apiFetch('/stats/online');
+  return data.players;
+}
+
 // ─── Daily ──────────────────────────────────────────────────────
 
 export interface DailyChallenge {

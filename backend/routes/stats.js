@@ -131,6 +131,33 @@ router.get('/leaderboard', (req, res) => {
   res.json({ leaderboard, myRank: myRank >= 0 ? myRank + 1 : null });
 });
 
+// GET /stats/online — recently active players (seen in last 5 min)
+router.get('/online', (req, res) => {
+  const db = req.app.locals.db;
+  const wallet = req.wallet;
+  const cutoff = Date.now() - 5 * 60 * 1000;
+
+  const players = db.prepare(`
+    SELECT wallet, wins, losses, xp, tier, total_matches, best_reaction_ms
+    FROM players
+    WHERE last_seen >= ? AND wallet != ?
+    ORDER BY xp DESC
+    LIMIT 20
+  `).all(cutoff, wallet);
+
+  res.json({
+    players: players.map(p => ({
+      wallet: p.wallet,
+      wins: p.wins,
+      losses: p.losses,
+      xp: p.xp,
+      tier: p.tier,
+      totalMatches: p.total_matches,
+      bestReaction: p.best_reaction_ms,
+    })),
+  });
+});
+
 // GET /stats/achievements — player's achievements
 router.get('/achievements', (req, res) => {
   const db = req.app.locals.db;

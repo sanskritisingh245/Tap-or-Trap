@@ -6,7 +6,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useMatch } from '../hooks/useMatch';
 import { useAccelerometer } from '../hooks/useAccelerometer';
-import { useWallet } from '../hooks/useWallet';
 import { LobbyMenu } from '../components/LobbyMenu';
 import { RoomCreator } from '../components/RoomCreator';
 import { RoomJoiner } from '../components/RoomJoiner';
@@ -38,8 +37,7 @@ function pickTaunt(won: boolean): string {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-export default function GameScreen({ onBack }: { onBack?: () => void }) {
-  const wallet = useWallet();
+export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wallet: { publicKey: string | null; connected: boolean; loading: boolean; connect: () => Promise<void> } }) {
   const match = useMatch();
   const { isStill } = useAccelerometer(match.phase === 'standoff');
 
@@ -117,16 +115,21 @@ export default function GameScreen({ onBack }: { onBack?: () => void }) {
   if (!wallet.connected) {
     return (
       <View style={styles.screen}>
-        <AmbientBackground tone="cool" />
+        <LinearGradient
+          colors={['#E8DDCF', '#D8CCC0', '#8A8795', '#23283F']}
+          style={StyleSheet.absoluteFill}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+        />
         <View style={styles.card}>
-          <Text style={styles.title}>TAPRUSH</Text>
+          <Text style={[styles.title, { color: '#3C3228', fontSize: 36 }]}>TAPRUSH</Text>
           <TouchableOpacity
-            style={styles.primaryBtn}
+            style={[styles.primaryBtn, { backgroundColor: '#2E3762', borderWidth: 1.5, borderColor: 'rgba(107,110,207,0.9)' }]}
             onPress={async () => { try { await wallet.connect(); await refreshCredits(); } catch {} }}
             disabled={wallet.loading}
             activeOpacity={0.86}
           >
-            {wallet.loading ? <ActivityIndicator color={palette.buttonText} /> : <Text style={styles.primaryBtnText}>CONNECT</Text>}
+            {wallet.loading ? <ActivityIndicator color="#DDBA7C" /> : <Text style={[styles.primaryBtnText, { color: '#EED8B6' }]}>CONNECT</Text>}
           </TouchableOpacity>
         </View>
       </View>

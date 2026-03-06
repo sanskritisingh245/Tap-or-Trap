@@ -66,8 +66,6 @@ app.use('/matchmaking', authMiddleware, matchmakingRoutes);
 app.use('/match', authMiddleware, matchRoutes);
 app.use('/stats', authMiddleware, statsRoutes);
 app.use('/daily', authMiddleware, dailyRoutes);
-const gameRoutes = require('./routes/games');
-app.use('/games', authMiddleware, gameRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -77,8 +75,6 @@ app.get('/health', (req, res) => {
 // Start background services
 startMatchmaker(db);
 startCleanupJob(db);
-const { startCrashEngine } = require('./services/crash-engine');
-startCrashEngine(db);
 
 // Listen on 0.0.0.0 so other devices on the LAN can connect
 app.listen(PORT, '0.0.0.0', () => {

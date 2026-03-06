@@ -4,32 +4,16 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import GameScreen from './src/screens/GameScreen';
 import HomeScreen from './src/screens/HomeScreen';
-import CoinFlipScreen from './src/screens/CoinFlipScreen';
-import DiceScreen from './src/screens/DiceScreen';
-import MinesScreen from './src/screens/MinesScreen';
-import CrashScreen from './src/screens/CrashScreen';
-import PlinkoScreen from './src/screens/PlinkoScreen';
-import LimboScreen from './src/screens/LimboScreen';
-import KenoScreen from './src/screens/KenoScreen';
-import WheelScreen from './src/screens/WheelScreen';
-import BlackjackScreen from './src/screens/BlackjackScreen';
-import RouletteScreen from './src/screens/RouletteScreen';
-import HiloScreen from './src/screens/HiloScreen';
-import TowerScreen from './src/screens/TowerScreen';
-import SlotsScreen from './src/screens/SlotsScreen';
-import DragonTowerScreen from './src/screens/DragonTowerScreen';
-import FairnessScreen from './src/screens/FairnessScreen';
 import MissionsScreen from './src/screens/MissionsScreen';
-import LiveBetsScreen from './src/screens/LiveBetsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { Onboarding, shouldShowOnboarding } from './src/components/Onboarding';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { useWallet } from './src/hooks/useWallet';
 import { palette, fonts } from './src/theme/ui';
 
-export type Screen = 'home' | 'taprush' | 'coinflip' | 'dice' | 'mines' | 'crash' | 'plinko' | 'limbo' | 'keno' | 'wheel' | 'blackjack' | 'roulette' | 'hilo' | 'tower' | 'slots' | 'dragontower' | 'fairness' | 'missions' | 'livebets' | 'settings';
+export type Screen = 'home' | 'taprush' | 'missions' | 'settings';
 
-const TAB_SCREENS: Screen[] = ['home', 'missions', 'fairness', 'livebets', 'settings'];
+const TAB_SCREENS: Screen[] = ['home', 'missions', 'settings'];
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -89,24 +73,8 @@ export default function App() {
       <StatusBar barStyle="light-content" backgroundColor={palette.bg} />
       <View style={styles.content}>
         {currentScreen === 'home' && <HomeScreen onNavigate={setCurrentScreen} wallet={wallet} />}
-        {currentScreen === 'taprush' && <GameScreen onBack={goHome} />}
-        {currentScreen === 'coinflip' && <CoinFlipScreen onBack={goHome} />}
-        {currentScreen === 'dice' && <DiceScreen onBack={goHome} />}
-        {currentScreen === 'mines' && <MinesScreen onBack={goHome} />}
-        {currentScreen === 'crash' && <CrashScreen onBack={goHome} />}
-        {currentScreen === 'plinko' && <PlinkoScreen onBack={goHome} />}
-        {currentScreen === 'limbo' && <LimboScreen onBack={goHome} />}
-        {currentScreen === 'keno' && <KenoScreen onBack={goHome} />}
-        {currentScreen === 'wheel' && <WheelScreen onBack={goHome} />}
-        {currentScreen === 'blackjack' && <BlackjackScreen onBack={goHome} />}
-        {currentScreen === 'roulette' && <RouletteScreen onBack={goHome} />}
-        {currentScreen === 'hilo' && <HiloScreen onBack={goHome} />}
-        {currentScreen === 'tower' && <TowerScreen onBack={goHome} />}
-        {currentScreen === 'slots' && <SlotsScreen onBack={goHome} />}
-        {currentScreen === 'dragontower' && <DragonTowerScreen onBack={goHome} />}
-        {currentScreen === 'fairness' && <FairnessScreen onBack={goHome} />}
+        {currentScreen === 'taprush' && <GameScreen onBack={goHome} wallet={wallet} />}
         {currentScreen === 'missions' && <MissionsScreen />}
-        {currentScreen === 'livebets' && <LiveBetsScreen />}
         {currentScreen === 'settings' && (
           <SettingsScreen wallet={wallet} onNavigate={(s) => setCurrentScreen(s as Screen)} />
         )}
