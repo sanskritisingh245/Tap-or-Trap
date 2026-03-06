@@ -1,18 +1,21 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, Easing } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, ScrollView, Image, Dimensions, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { BetInput } from '../components/BetInput';
 import { getCreditsBalance } from '../services/api';
+import { placeBet, settleBet } from '../services/gameApi';
 import { fonts, palette, gameColors, shadows } from '../theme/ui';
 
 const ACCENT = gameColors.slots;
+const { width: SW } = Dimensions.get('window');
+const BANNER_HEIGHT = 200;
 const SYMBOLS = ['🍒', '🍋', '🍊', '🍇', '💎', '7️⃣', '⭐', '🔔'];
 const REEL_SIZE = 3;
 const NUM_REELS = 5;
 
 const PAYOUTS: Record<string, number> = {
-  '7️⃣': 50, '💎': 25, '⭐': 15, '🔔': 10, '🍇': 8, '🍊': 5, '🍋': 3, '🍒': 2,
+  '7️⃣': 10, '💎': 6, '⭐': 4, '🔔': 3, '🍇': 2.5, '🍊': 2, '🍋': 1.5, '🍒': 1,
 };
 
 function randomSymbol(): string {
@@ -28,18 +31,14 @@ function randomSymbol(): string {
 }
 
 function checkWin(reels: string[][]): { symbol: string; count: number; mult: number } | null {
-  // Check middle row for matching from left
-  const middle = reels.map(r => r[1]);
-  let matchCount = 1;
-  const first = middle[0];
-  for (let i = 1; i < middle.length; i++) {
-    if (middle[i] === first) matchCount++;
-    else break;
-  }
-  if (matchCount >= 3) {
-    const basePay = PAYOUTS[first] || 2;
-    const mult = matchCount === 5 ? basePay * 5 : matchCount === 4 ? basePay * 2 : basePay;
-    return { symbol: first, count: matchCount, mult };
+  // Only pay out on a full row (all 5 reels match on any row)
+  for (let row = 0; row < REEL_SIZE; row++) {
+    const line = reels.map(r => r[row]);
+    const first = line[0];
+    if (line.every(s => s === first)) {
+      const basePay = PAYOUTS[first] || 2;
+      return { symbol: first, count: 5, mult: basePay * 3 };
+    }
   }
   return null;
 }
@@ -51,10 +50,12 @@ export default function SlotsScreen({ onBack }: { onBack: () => void }) {
   const [reels, setReels] = useState<string[][]>(
     Array.from({ length: NUM_REELS }, () => Array.from({ length: REEL_SIZE }, randomSymbol))
   );
-  const [result, setResult] = useState<{ symbol: string; count: number; mult: number; payout: number } | null>(null);
+  const [result, setResult] = useState<{ symbol: string; count: number; mult: number; payout: number; won: boolean } | null>(null);
   const [history, setHistory] = useState<{ mult: number; won: boolean }[]>([]);
 
-  const reelAnims = useRef(Array.from({ length: NUM_REELS }, () => new Animated.Value(0))).current;
+  const [displayReels, setDisplayReels] = useState<string[][]>(reels);
+  const spinIntervals = useRef<(ReturnType<typeof setInterval> | null)[]>(Array(NUM_REELS).fill(null));
+  const reelScrollY = useRef(Array.from({ length: NUM_REELS }, () => new Animated.Value(0))).current;
   const resultScale = useRef(new Animated.Value(0)).current;
   const winGlow = useRef(new Animated.Value(0)).current;
 
@@ -62,57 +63,105 @@ export default function SlotsScreen({ onBack }: { onBack: () => void }) {
     try { setBalance(await getCreditsBalance()); } catch {}
   }, []);
   useEffect(() => { loadBalance(); }, []);
+  useEffect(() => {
+    return () => { spinIntervals.current.forEach(iv => iv && clearInterval(iv)); };
+  }, []);
 
-  const spin = () => {
+  const spin = async () => {
     const bet = parseInt(betAmount);
-    if (!bet || bet < 1 || bet > balance || spinning) return;
+    if (!bet || bet < 1 || spinning) return;
+    if (bet > balance) {
+      Alert.alert('Insufficient credits', `You need ${bet} credits but only have ${balance}.`);
+      return;
+    }
 
     setSpinning(true);
     setResult(null);
-    setBalance(b => b - bet);
     resultScale.setValue(0);
     winGlow.setValue(0);
 
-    // Generate results
+    try {
+      const betRes = await placeBet(bet, 'slots');
+      setBalance(betRes.balance);
+    } catch { setSpinning(false); return; }
+
     const newReels = Array.from({ length: NUM_REELS }, () =>
       Array.from({ length: REEL_SIZE }, randomSymbol)
     );
 
-    // Animate reels with staggered timing
-    const anims = reelAnims.map((anim, i) => {
-      anim.setValue(0);
-      return Animated.timing(anim, {
-        toValue: 1,
-        duration: 600 + i * 200,
-        easing: Easing.out(Easing.bounce),
-        useNativeDriver: true,
-      });
-    });
+    // Start rapid symbol cycling for each reel
+    spinIntervals.current.forEach((iv) => iv && clearInterval(iv));
+    for (let i = 0; i < NUM_REELS; i++) {
+      reelScrollY[i].setValue(0);
+      spinIntervals.current[i] = setInterval(() => {
+        setDisplayReels(prev => {
+          const copy = [...prev];
+          copy[i] = Array.from({ length: REEL_SIZE }, randomSymbol);
+          return copy;
+        });
+      }, 80);
+    }
 
-    Animated.parallel(anims).start(() => {
-      setReels(newReels);
-      setSpinning(false);
+    // Stop reels one by one with staggered delay + bounce animation
+    for (let i = 0; i < NUM_REELS; i++) {
+      const idx = i;
+      setTimeout(() => {
+        if (spinIntervals.current[idx]) {
+          clearInterval(spinIntervals.current[idx]!);
+          spinIntervals.current[idx] = null;
+        }
+        setDisplayReels(prev => {
+          const copy = [...prev];
+          copy[idx] = newReels[idx];
+          return copy;
+        });
+        reelScrollY[idx].setValue(-20);
+        Animated.spring(reelScrollY[idx], {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 8,
+          stiffness: 300,
+        }).start();
+      }, 400 + idx * 300);
+    }
 
-      const win = checkWin(newReels);
-      if (win) {
-        const payout = Math.floor(bet * win.mult);
-        setBalance(b => b + payout);
-        setResult({ ...win, payout });
-        setHistory(h => [{ mult: win.mult, won: true }, ...h.slice(0, 9)]);
-        Animated.parallel([
-          Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }),
-          Animated.loop(
-            Animated.sequence([
-              Animated.timing(winGlow, { toValue: 1, duration: 400, useNativeDriver: true }),
-              Animated.timing(winGlow, { toValue: 0, duration: 400, useNativeDriver: true }),
-            ]),
-            { iterations: 3 }
-          ),
-        ]).start();
-      } else {
-        setHistory(h => [{ mult: 0, won: false }, ...h.slice(0, 9)]);
-      }
-    });
+    // Wait for all reels to finish (last reel stops at 400 + 4*300 = 1600ms, plus ~400ms for bounce)
+    const totalWait = 400 + (NUM_REELS - 1) * 300 + 400;
+    await new Promise<void>(resolve => setTimeout(resolve, totalWait));
+
+    setReels(newReels);
+    setSpinning(false);
+
+    const win = checkWin(newReels);
+    if (win && win.mult > 0) {
+      const payout = Math.floor(bet * win.mult);
+      try {
+        const res = await settleBet(payout, 'slots', true);
+        setBalance(res.balance);
+      } catch {}
+      setResult({ ...win, payout, won: true });
+      setHistory(h => [{ mult: win.mult, won: true }, ...h.slice(0, 9)]);
+      resultScale.setValue(0);
+      Animated.parallel([
+        Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }),
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(winGlow, { toValue: 1, duration: 400, useNativeDriver: true }),
+            Animated.timing(winGlow, { toValue: 0, duration: 400, useNativeDriver: true }),
+          ]),
+          { iterations: 3 }
+        ),
+      ]).start();
+    } else {
+      try {
+        const res = await settleBet(0, 'slots', false);
+        setBalance(res.balance);
+      } catch {}
+      setResult({ symbol: '✕', count: 0, mult: 0, payout: 0, won: false });
+      setHistory(h => [{ mult: 0, won: false }, ...h.slice(0, 9)]);
+      resultScale.setValue(0);
+      Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
+    }
   };
 
   const autoSpin = () => {
@@ -133,22 +182,29 @@ export default function SlotsScreen({ onBack }: { onBack: () => void }) {
         </View>
       </View>
 
-      {/* Slot machine */}
-      <View style={s.machine}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* Banner */}
+        <View style={s.bannerWrap}>
+          <Image source={require('../../assets/Slots.jpeg')} style={s.bannerImage} resizeMode="cover" />
+          <LinearGradient
+            colors={['transparent', 'rgba(15,33,46,0.6)', palette.bg]}
+            style={s.bannerOverlay}
+            start={{ x: 0.5, y: 0.2 }}
+            end={{ x: 0.5, y: 1 }}
+          />
+        </View>
+
+        {/* Slot machine */}
+        <View style={s.machine}>
         <Animated.View style={[s.winLine, { opacity: winGlow }]} />
         <View style={s.reelsContainer}>
-          {reels.map((reel, rIdx) => (
+          {displayReels.map((reel, rIdx) => (
             <Animated.View key={rIdx} style={[s.reel, {
-              transform: [{
-                translateY: spinning ? reelAnims[rIdx].interpolate({
-                  inputRange: [0, 0.5, 1],
-                  outputRange: [0, -30, 0],
-                }) : 0,
-              }],
+              transform: [{ translateY: reelScrollY[rIdx] }],
             }]}>
               {reel.map((sym, sIdx) => (
                 <View key={sIdx} style={[s.symbolCell, sIdx === 1 && s.symbolMiddle]}>
-                  <Text style={s.symbolText}>{spinning ? SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)] : sym}</Text>
+                  <Text style={s.symbolText}>{sym}</Text>
                 </View>
               ))}
             </Animated.View>
@@ -158,11 +214,17 @@ export default function SlotsScreen({ onBack }: { onBack: () => void }) {
 
       {/* Result */}
       {result && (
-        <Animated.View style={[s.resultCard, { transform: [{ scale: resultScale }] }]}>
-          <Text style={s.resultEmoji}>{result.symbol}</Text>
+        <Animated.View style={[s.resultCard, { transform: [{ scale: resultScale }], borderColor: result.won ? palette.success + '40' : palette.danger + '40', borderWidth: 1 }]}>
+          {result.won && <Text style={s.resultEmoji}>{result.symbol}</Text>}
           <View>
-            <Text style={s.resultMult}>{result.count}x {result.symbol} — {result.mult}x</Text>
-            <Text style={s.resultPayout}>+{result.payout}</Text>
+            {result.won ? (
+              <>
+                <Text style={s.resultMult}>{result.count}x {result.symbol} — {result.mult}x</Text>
+                <Text style={s.resultPayout}>+{result.payout} credits</Text>
+              </>
+            ) : (
+              <Text style={s.resultLoss}>No match — you lost!</Text>
+            )}
           </View>
         </Animated.View>
       )}
@@ -178,19 +240,24 @@ export default function SlotsScreen({ onBack }: { onBack: () => void }) {
 
       {/* Controls */}
       <View style={s.controls}>
-        <BetInput value={betAmount} onChange={setBetAmount} balance={balance} accent={ACCENT} />
+        <BetInput amount={betAmount} onChangeAmount={setBetAmount} balance={balance} accentColor={ACCENT} />
         <Pressable onPress={spin} disabled={spinning}>
           <LinearGradient colors={['#E879F9', '#C026D3']} style={s.spinBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
             <Text style={s.spinText}>{spinning ? 'Spinning...' : 'Spin'}</Text>
           </LinearGradient>
         </Pressable>
       </View>
+      </ScrollView>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg },
+  scroll: { paddingBottom: 120 },
+  bannerWrap: { width: SW, height: BANNER_HEIGHT, overflow: 'hidden', marginBottom: -20 },
+  bannerImage: { width: '100%', height: '100%' },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: palette.panel, alignItems: 'center', justifyContent: 'center' },
   backIcon: { color: palette.text, fontSize: 24, marginTop: -2 },
@@ -208,6 +275,7 @@ const s = StyleSheet.create({
   resultEmoji: { fontSize: 36 },
   resultMult: { color: palette.text, fontFamily: fonts.display, fontSize: 16 },
   resultPayout: { color: palette.success, fontFamily: fonts.mono, fontSize: 14, marginTop: 2 },
+  resultLoss: { color: palette.danger, fontFamily: fonts.display, fontSize: 16 },
   historyRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 6, marginTop: 12, flexWrap: 'wrap' },
   histChip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   histText: { fontFamily: fonts.mono, fontSize: 11 },

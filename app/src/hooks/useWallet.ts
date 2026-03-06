@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { transact, type AuthToken } from '@solana-mobile/mobile-wallet-adapter-protocol';
 import bs58 from 'bs58';
@@ -8,6 +8,7 @@ import { APP_IDENTITY } from '../constants';
 
 const STORAGE_KEY_AUTH = '@taprush/mwa_auth_token';
 const STORAGE_KEY_PUBKEY = '@taprush/pubkey';
+const STORAGE_KEY_JWT = '@taprush/jwt';
 
 // Base64 helpers
 function toBase64(bytes: Uint8Array): string {
@@ -38,6 +39,34 @@ export function useWallet() {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const mwaAuthToken = useRef<AuthToken | null>(null);
+  const restoringSession = useRef(false);
+
+  // Restore session from AsyncStorage on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        restoringSession.current = true;
+        const [[, storedPubkey], [, storedJwt]] = await AsyncStorage.multiGet([
+          STORAGE_KEY_PUBKEY,
+          STORAGE_KEY_JWT,
+        ]);
+        if (storedPubkey) {
+          // Re-authenticate with backend to get fresh token
+          try {
+            await devLogin(storedPubkey);
+            setPublicKey(storedPubkey);
+            setConnected(true);
+            console.log('[useWallet] session restored for', storedPubkey);
+          } catch {
+            console.log('[useWallet] session restore failed, clearing stored data');
+            await AsyncStorage.multiRemove([STORAGE_KEY_AUTH, STORAGE_KEY_PUBKEY, STORAGE_KEY_JWT]);
+          }
+        }
+      } catch {} finally {
+        restoringSession.current = false;
+      }
+    })();
+  }, []);
 
   const connect = useCallback(async () => {
     setLoading(true);
@@ -46,12 +75,18 @@ export function useWallet() {
       // (MWA only works on Android with a real wallet app installed)
       if (__DEV__ || Platform.OS !== 'android') {
         console.log('[useWallet] using dev mock wallet');
-        const mockAddress = generateMockWallet();
+        // Try to reuse stored wallet address so credits persist
+        const storedPubkey = await AsyncStorage.getItem(STORAGE_KEY_PUBKEY);
+        const mockAddress = storedPubkey || generateMockWallet();
         console.log('[useWallet] mock address:', mockAddress);
         setPublicKey(mockAddress);
         try {
           const token = await devLogin(mockAddress);
           console.log('[useWallet] auth token:', token);
+          await AsyncStorage.multiSet([
+            [STORAGE_KEY_PUBKEY, mockAddress],
+            [STORAGE_KEY_JWT, token],
+          ]);
         } catch (e) {
           console.log('[useWallet] devLogin failed (backend offline), continuing with mock wallet');
         }
@@ -111,6 +146,7 @@ export function useWallet() {
       await AsyncStorage.multiSet([
         [STORAGE_KEY_AUTH, mwaAuthToken.current],
         [STORAGE_KEY_PUBKEY, walletAddress],
+        [STORAGE_KEY_JWT, jwt],
       ]);
 
       setConnected(true);
@@ -120,11 +156,16 @@ export function useWallet() {
       if (__DEV__ && Platform.OS === 'android') {
         console.log('[useWallet] MWA failed in dev mode, falling back to mock wallet');
         try {
-          const mockAddress = generateMockWallet();
+          const storedPubkey = await AsyncStorage.getItem(STORAGE_KEY_PUBKEY);
+          const mockAddress = storedPubkey || generateMockWallet();
           setPublicKey(mockAddress);
           try {
             const token = await devLogin(mockAddress);
             console.log('[useWallet] fallback auth token:', token);
+            await AsyncStorage.multiSet([
+              [STORAGE_KEY_PUBKEY, mockAddress],
+              [STORAGE_KEY_JWT, token],
+            ]);
           } catch (e) {
             console.log('[useWallet] devLogin failed (backend offline), continuing offline');
           }
@@ -179,7 +220,7 @@ export function useWallet() {
     mwaAuthToken.current = null;
     setPublicKey(null);
     setConnected(false);
-    await AsyncStorage.multiRemove([STORAGE_KEY_AUTH, STORAGE_KEY_PUBKEY]);
+    await AsyncStorage.multiRemove([STORAGE_KEY_AUTH, STORAGE_KEY_PUBKEY, STORAGE_KEY_JWT]);
   }, []);
 
   return {

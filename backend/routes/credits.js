@@ -25,7 +25,7 @@ router.post('/topup', (req, res) => {
     return res.status(400).json({ error: 'Use on-chain top-up in production' });
   }
   req.app.locals.db
-    .prepare('UPDATE players SET credits = credits + 5 WHERE wallet = ?')
+    .prepare('UPDATE players SET credits = credits + 1000 WHERE wallet = ?')
     .run(req.wallet);
   const player = req.app.locals.db
     .prepare('SELECT credits FROM players WHERE wallet = ?')

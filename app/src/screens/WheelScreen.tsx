@@ -1,22 +1,25 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, Easing } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, Easing, ScrollView, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { BetInput } from '../components/BetInput';
 import { getCreditsBalance } from '../services/api';
+import { placeBet, settleBet } from '../services/gameApi';
 import { fonts, palette, gameColors, shadows } from '../theme/ui';
 
 const ACCENT = gameColors.wheel;
+const { width: SW } = Dimensions.get('window');
+const BANNER_HEIGHT = 200;
 const SEGMENTS = [
   { label: '1.2x', mult: 1.2, color: '#22C55E', weight: 30 },
-  { label: '1.5x', mult: 1.5, color: '#14B8A6', weight: 20 },
+  { label: '1.5x', mult: 1.5, color: '#14B8A6', weight: 22 },
   { label: '2x', mult: 2, color: '#3B82F6', weight: 15 },
   { label: '3x', mult: 3, color: '#6366F1', weight: 10 },
-  { label: '5x', mult: 5, color: '#A855F7', weight: 8 },
-  { label: '10x', mult: 10, color: '#EC4899', weight: 5 },
-  { label: '20x', mult: 20, color: '#F97316', weight: 3 },
-  { label: '50x', mult: 50, color: '#EF4444', weight: 2 },
-  { label: '0x', mult: 0, color: '#374151', weight: 7 },
+  { label: '5x', mult: 5, color: '#A855F7', weight: 6 },
+  { label: '8x', mult: 8, color: '#EC4899', weight: 3 },
+  { label: '15x', mult: 15, color: '#F97316', weight: 1 },
+  { label: '0x', mult: 0, color: '#374151', weight: 8 },
+  { label: '0x', mult: 0, color: '#4B5563', weight: 5 },
 ];
 
 function pickSegment(): number {
@@ -43,14 +46,18 @@ export default function WheelScreen({ onBack }: { onBack: () => void }) {
   }, []);
   useEffect(() => { loadBalance(); }, []);
 
-  const spin = () => {
+  const spin = async () => {
     const bet = parseInt(betAmount);
     if (!bet || bet < 1 || bet > balance || spinning) return;
 
     setSpinning(true);
     setResult(null);
-    setBalance(b => b - bet);
     resultScale.setValue(0);
+
+    try {
+      const betRes = await placeBet(bet, 'wheel');
+      setBalance(betRes.balance);
+    } catch { setSpinning(false); return; }
 
     const winIdx = pickSegment();
     const seg = SEGMENTS[winIdx];
@@ -66,8 +73,11 @@ export default function WheelScreen({ onBack }: { onBack: () => void }) {
       duration: 3500,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start(() => {
-      if (payout > 0) setBalance(b => b + payout);
+    }).start(async () => {
+      try {
+        const res = await settleBet(payout, 'wheel', payout > 0);
+        setBalance(res.balance);
+      } catch {}
       setResult({ segment: seg, payout });
       setSpinning(false);
       Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
@@ -92,8 +102,20 @@ export default function WheelScreen({ onBack }: { onBack: () => void }) {
         </View>
       </View>
 
-      {/* Wheel */}
-      <View style={s.wheelArea}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* Banner */}
+        <View style={s.bannerWrap}>
+          <Image source={require('../../assets/wheel.jpeg')} style={s.bannerImage} resizeMode="cover" />
+          <LinearGradient
+            colors={['transparent', 'rgba(15,33,46,0.6)', palette.bg]}
+            style={s.bannerOverlay}
+            start={{ x: 0.5, y: 0.2 }}
+            end={{ x: 0.5, y: 1 }}
+          />
+        </View>
+
+        {/* Wheel */}
+        <View style={s.wheelArea}>
         <View style={s.pointer} />
         <Animated.View style={[s.wheel, { transform: [{ rotate: rotation }] }]}>
           {SEGMENTS.map((seg, i) => {
@@ -121,19 +143,24 @@ export default function WheelScreen({ onBack }: { onBack: () => void }) {
 
       {/* Controls */}
       <View style={s.controls}>
-        <BetInput value={betAmount} onChange={setBetAmount} balance={balance} accent={ACCENT} />
+        <BetInput amount={betAmount} onChangeAmount={setBetAmount} balance={balance} accentColor={ACCENT} />
         <Pressable onPress={spin} disabled={spinning}>
           <LinearGradient colors={['#FACC15', '#EAB308']} style={s.spinBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
             <Text style={s.spinText}>{spinning ? 'Spinning...' : 'Spin'}</Text>
           </LinearGradient>
         </Pressable>
       </View>
+      </ScrollView>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg },
+  scroll: { paddingBottom: 120 },
+  bannerWrap: { width: SW, height: BANNER_HEIGHT, overflow: 'hidden', marginBottom: -20 },
+  bannerImage: { width: '100%', height: '100%' },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: palette.panel, alignItems: 'center', justifyContent: 'center' },
   backIcon: { color: palette.text, fontSize: 24, marginTop: -2 },

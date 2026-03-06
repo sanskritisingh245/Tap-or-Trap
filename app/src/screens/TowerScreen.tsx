@@ -1,18 +1,21 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, ScrollView, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { BetInput } from '../components/BetInput';
 import { getCreditsBalance } from '../services/api';
+import { placeBet, settleBet } from '../services/gameApi';
 import { fonts, palette, gameColors, shadows } from '../theme/ui';
 
 const ACCENT = gameColors.tower;
+const { width: SW } = Dimensions.get('window');
+const BANNER_HEIGHT = 200;
 const COLS = 3;
 const MAX_ROWS = 10;
 
 type Difficulty = 'Easy' | 'Medium' | 'Hard';
 const MINES_PER_ROW: Record<Difficulty, number> = { Easy: 1, Medium: 1, Hard: 2 };
-const MULT_STEP: Record<Difficulty, number> = { Easy: 1.45, Medium: 1.9, Hard: 2.8 };
+const MULT_STEP: Record<Difficulty, number> = { Easy: 1.25, Medium: 1.5, Hard: 1.9 };
 
 type TileState = 'hidden' | 'safe' | 'bomb';
 
@@ -35,15 +38,17 @@ export default function TowerScreen({ onBack }: { onBack: () => void }) {
   }, []);
   useEffect(() => { loadBalance(); }, []);
 
-  const startGame = () => {
+  const startGame = async () => {
     const b = parseInt(betAmount);
     if (!b || b < 1 || b > balance) return;
-    setBalance(bal => bal - b);
+    try {
+      const res = await placeBet(b, 'tower');
+      setBalance(res.balance);
+    } catch { return; }
     setBet(b);
     setResult(null);
     resultScale.setValue(0);
 
-    // Generate mine positions for each row
     const mines: number[][] = [];
     const g: TileState[][] = [];
     for (let r = 0; r < MAX_ROWS; r++) {
@@ -62,17 +67,20 @@ export default function TowerScreen({ onBack }: { onBack: () => void }) {
     setPlaying(true);
   };
 
-  const selectTile = (col: number) => {
+  const selectTile = async (col: number) => {
     if (!playing || currentRow < 0) return;
 
     const newGrid = grid.map(r => [...r]);
     const isMine = minePositions[currentRow].includes(col);
 
     if (isMine) {
-      // Reveal all bombs in current row
       minePositions[currentRow].forEach(m => { newGrid[currentRow][m] = 'bomb'; });
       newGrid[currentRow][col] = 'bomb';
       setGrid(newGrid);
+      try {
+        const res = await settleBet(0, 'tower', false);
+        setBalance(res.balance);
+      } catch {}
       setResult({ won: false, payout: 0 });
       setPlaying(false);
       Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
@@ -84,9 +92,11 @@ export default function TowerScreen({ onBack }: { onBack: () => void }) {
       setCurrentRow(r => r - 1);
 
       if (currentRow === 0) {
-        // Reached the top!
         const payout = Math.floor(bet * newMult);
-        setBalance(b => b + payout);
+        try {
+          const res = await settleBet(payout, 'tower', true);
+          setBalance(res.balance);
+        } catch {}
         setResult({ won: true, payout });
         setPlaying(false);
         Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
@@ -94,9 +104,12 @@ export default function TowerScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const cashout = () => {
+  const cashout = async () => {
     const payout = Math.floor(bet * multiplier);
-    setBalance(b => b + payout);
+    try {
+      const res = await settleBet(payout, 'tower', true);
+      setBalance(res.balance);
+    } catch {}
     setResult({ won: true, payout });
     setPlaying(false);
     Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
@@ -116,6 +129,17 @@ export default function TowerScreen({ onBack }: { onBack: () => void }) {
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* Banner */}
+        <View style={s.bannerWrap}>
+          <Image source={require('../../assets/Tower.jpeg')} style={s.bannerImage} resizeMode="cover" />
+          <LinearGradient
+            colors={['transparent', 'rgba(15,33,46,0.6)', palette.bg]}
+            style={s.bannerOverlay}
+            start={{ x: 0.5, y: 0.2 }}
+            end={{ x: 0.5, y: 1 }}
+          />
+        </View>
+
         {/* Multiplier display */}
         {playing && (
           <View style={s.multRow}>
@@ -180,7 +204,7 @@ export default function TowerScreen({ onBack }: { onBack: () => void }) {
                   </Pressable>
                 ))}
               </View>
-              <BetInput value={betAmount} onChange={setBetAmount} balance={balance} accent={ACCENT} />
+              <BetInput amount={betAmount} onChangeAmount={setBetAmount} balance={balance} accentColor={ACCENT} />
               <Pressable onPress={startGame}>
                 <LinearGradient colors={['#F59E0B', '#D97706']} style={s.actionBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                   <Text style={s.actionText}>Start Climbing</Text>
@@ -211,6 +235,9 @@ const s = StyleSheet.create({
   balPill: { backgroundColor: palette.panel, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6 },
   balText: { color: ACCENT, fontFamily: fonts.mono, fontSize: 14 },
   scroll: { paddingBottom: 120 },
+  bannerWrap: { width: SW, height: BANNER_HEIGHT, overflow: 'hidden', marginBottom: -20 },
+  bannerImage: { width: '100%', height: '100%' },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject },
   multRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', marginTop: 12 },
   multLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
   multVal: { fontFamily: fonts.display, fontSize: 22 },

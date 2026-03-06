@@ -13,58 +13,70 @@ interface BetInputProps {
 
 const QUICK_PICKS = [1, 5, 10, 25];
 
-export function BetInput({ amount, onChangeAmount, balance, disabled, accentColor = palette.primary }: BetInputProps) {
+export function BetInput({ amount, onChangeAmount, balance, disabled, accentColor }: BetInputProps) {
+  const resolvedAccent = accentColor ?? palette.primary;
   const [focused, setFocused] = useState(false);
+  const bal = typeof balance === 'number' && !isNaN(balance) ? balance : 0;
+
+  // Defensive wrapper — prevents crash if prop is somehow undefined at runtime
+  const safeChange = (val: string) => {
+    if (typeof onChangeAmount === 'function') {
+      onChangeAmount(val);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.row}>
         <Text style={styles.label}>Bet amount</Text>
-        <Text style={styles.balance}>{balance} credits</Text>
+        <Text style={styles.balance}>{bal} credits</Text>
       </View>
-      <View style={[styles.inputRow, focused && { borderColor: accentColor + '50', borderWidth: 1 }]}>
+      <View style={[styles.inputRow, focused && { borderColor: resolvedAccent + '50', borderWidth: 1 }]}>
         <TextInput
           style={styles.input}
           value={amount}
-          onChangeText={onChangeAmount}
+          onChangeText={(val) => {
+            const cleaned = val.replace(/[^0-9]/g, '');
+            safeChange(cleaned || '0');
+          }}
           keyboardType="number-pad"
           placeholderTextColor="rgba(255,255,255,0.18)"
           placeholder="0"
           editable={!disabled}
-          selectionColor={accentColor}
+          selectionColor={resolvedAccent}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
         <Pressable
           style={styles.maxWrap}
-          onPress={() => onChangeAmount(String(balance))}
-          disabled={disabled}
+          onPress={() => bal > 0 && safeChange(String(bal))}
+          disabled={disabled || bal < 1}
         >
           <LinearGradient
-            colors={[accentColor + '25', accentColor + '10'] as [string, string]}
+            colors={[resolvedAccent + '25', resolvedAccent + '10'] as [string, string]}
             style={styles.maxBtn}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Text style={[styles.maxText, { color: accentColor }]}>MAX</Text>
+            <Text style={[styles.maxText, { color: resolvedAccent }]}>MAX</Text>
           </LinearGradient>
         </Pressable>
       </View>
       <View style={styles.quickRow}>
         {QUICK_PICKS.map(v => (
-          <QuickBtn key={v} label={String(v)} onPress={() => onChangeAmount(String(v))} disabled={disabled} accent={accentColor} />
+          <QuickBtn key={v} label={String(v)} onPress={() => safeChange(String(v))} disabled={disabled} accent={resolvedAccent} />
         ))}
         <QuickBtn
           label="1/2"
-          onPress={() => { const n = parseInt(amount) || 0; onChangeAmount(String(Math.floor(n / 2))); }}
+          onPress={() => { const n = parseInt(amount) || 0; safeChange(String(Math.max(0, Math.floor(n / 2)))); }}
           disabled={disabled}
-          accent={accentColor}
+          accent={resolvedAccent}
         />
         <QuickBtn
           label="2x"
-          onPress={() => { const n = parseInt(amount) || 0; onChangeAmount(String(n * 2)); }}
+          onPress={() => { const n = parseInt(amount) || 0; safeChange(String(n * 2)); }}
           disabled={disabled}
-          accent={accentColor}
+          accent={resolvedAccent}
         />
       </View>
     </View>

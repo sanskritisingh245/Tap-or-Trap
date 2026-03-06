@@ -147,6 +147,22 @@ export async function crashCashout(): Promise<{ cashedOutAt: number; payout: num
   return gameApiFetch('/crash/cashout', { method: 'POST' });
 }
 
+// ─── Generic (client-side games) ──────────────────────────────
+
+export async function placeBet(amount: number, gameType: string): Promise<{ success: boolean; balance: number }> {
+  return gameApiFetch('/generic/bet', {
+    method: 'POST',
+    body: JSON.stringify({ amount, gameType }),
+  });
+}
+
+export async function settleBet(payout: number, gameType: string, won: boolean): Promise<{ success: boolean; balance: number }> {
+  return gameApiFetch('/generic/settle', {
+    method: 'POST',
+    body: JSON.stringify({ payout, gameType, won }),
+  });
+}
+
 // ─── History ───────────────────────────────────────────────────
 
 export interface GameBet {

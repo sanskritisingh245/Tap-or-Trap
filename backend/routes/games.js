@@ -54,7 +54,7 @@ router.post('/coinflip/bet', (req, res) => {
   const nonce = getPlayerNonce(db, wallet);
   const result = deriveCoinFlip(serverSeed, wallet, nonce, choice);
   const won = result === choice;
-  const payout = won ? Math.floor(amount * 1.96) : 0;
+  const payout = won ? Math.floor(amount * 1.8) : 0;
 
   if (payout > 0) addCredits(db, wallet, payout);
   awardXp(db, wallet, won, amount);
@@ -403,6 +403,43 @@ router.get('/live-feed', (req, res) => {
   }));
 
   res.json({ feed });
+});
+
+// ─── GENERIC BET (client-side games) ─────────────────────────────
+
+router.post('/generic/bet', (req, res) => {
+  const db = req.app.locals.db;
+  const wallet = req.wallet;
+  const { gameType } = req.body;
+  const amount = Math.floor(Number(req.body.amount));
+
+  if (!amount || amount < 1) return res.status(400).json({ error: 'Invalid bet amount' });
+  if (!gameType) return res.status(400).json({ error: 'Game type required' });
+
+  if (!deductCredits(db, wallet, amount)) {
+    return res.status(400).json({ error: 'Insufficient credits' });
+  }
+
+  const player = db.prepare('SELECT credits FROM players WHERE wallet = ?').get(wallet);
+  res.json({ success: true, balance: player.credits });
+});
+
+const MAX_PAYOUT = 5000; // Global max payout cap per settle
+
+router.post('/generic/settle', (req, res) => {
+  const db = req.app.locals.db;
+  const wallet = req.wallet;
+  const { gameType, won } = req.body;
+  const rawPayout = Math.floor(Number(req.body.payout) || 0);
+  const payout = Math.min(rawPayout, MAX_PAYOUT); // Cap payout
+
+  if (payout > 0) {
+    addCredits(db, wallet, payout);
+  }
+  awardXp(db, wallet, !!won, payout);
+
+  const player = db.prepare('SELECT credits FROM players WHERE wallet = ?').get(wallet);
+  res.json({ success: true, balance: player.credits });
 });
 
 // ─── VERIFY ───────────────────────────────────────────────────────

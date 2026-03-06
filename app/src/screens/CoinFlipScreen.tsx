@@ -145,7 +145,7 @@ export default function CoinFlipScreen({ onBack }: { onBack: () => void }) {
           ))}
         </View>
 
-        <Text style={styles.multiplier}>1.96x payout</Text>
+        <Text style={styles.multiplier}>1.8x payout</Text>
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable

@@ -1,12 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, TextInput, ScrollView, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { BetInput } from '../components/BetInput';
 import { getCreditsBalance } from '../services/api';
+import { placeBet, settleBet } from '../services/gameApi';
 import { fonts, palette, gameColors, shadows } from '../theme/ui';
 
 const ACCENT = gameColors.limbo;
+const { width: SW } = Dimensions.get('window');
+const BANNER_HEIGHT = 200;
 
 export default function LimboScreen({ onBack }: { onBack: () => void }) {
   const [balance, setBalance] = useState(0);
@@ -25,15 +28,19 @@ export default function LimboScreen({ onBack }: { onBack: () => void }) {
   }, []);
   useEffect(() => { loadBalance(); }, []);
 
-  const play = () => {
+  const play = async () => {
     const bet = parseInt(betAmount);
     const target = parseFloat(targetMult);
-    if (!bet || bet < 1 || bet > balance || playing || target < 1.01) return;
+    if (!bet || bet < 1 || bet > balance || playing || target < 1.01 || target > 20) return;
 
     setPlaying(true);
     setResult(null);
-    setBalance(b => b - bet);
     resultScale.setValue(0);
+
+    try {
+      const betRes = await placeBet(bet, 'limbo');
+      setBalance(betRes.balance);
+    } catch { setPlaying(false); return; }
 
     // Generate crash point (provably fair simulation)
     const crashPoint = Math.max(1, 0.99 / (1 - Math.random()));
@@ -47,9 +54,12 @@ export default function LimboScreen({ onBack }: { onBack: () => void }) {
       toValue: finalVal,
       duration: 1200,
       useNativeDriver: false,
-    }).start(() => {
+    }).start(async () => {
       setResult({ mult: Math.round(crashPoint * 100) / 100, won, payout });
-      if (won) setBalance(b => b + payout);
+      try {
+        const res = await settleBet(payout, 'limbo', won);
+        setBalance(res.balance);
+      } catch {}
       setHistory(h => [{ mult: Math.round(crashPoint * 100) / 100, won }, ...h.slice(0, 19)]);
       setPlaying(false);
 
@@ -76,8 +86,20 @@ export default function LimboScreen({ onBack }: { onBack: () => void }) {
         </View>
       </View>
 
-      {/* Main display */}
-      <View style={s.displayArea}>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* Banner */}
+        <View style={s.bannerWrap}>
+          <Image source={require('../../assets/Limbo.jpeg')} style={s.bannerImage} resizeMode="cover" />
+          <LinearGradient
+            colors={['transparent', 'rgba(15,33,46,0.6)', palette.bg]}
+            style={s.bannerOverlay}
+            start={{ x: 0.5, y: 0.2 }}
+            end={{ x: 0.5, y: 1 }}
+          />
+        </View>
+
+        {/* Main display */}
+        <View style={s.displayArea}>
         <Animated.View style={[s.glowRing, { opacity: glowOpacity, borderColor: result?.won ? palette.success : palette.danger }]} />
         <View style={s.multDisplay}>
           {playing ? (
@@ -140,19 +162,24 @@ export default function LimboScreen({ onBack }: { onBack: () => void }) {
             <Text style={[s.statValue, { color: palette.success }]}>{(parseInt(betAmount || '0') * parseFloat(targetMult || '0')).toFixed(0)}</Text>
           </View>
         </View>
-        <BetInput value={betAmount} onChange={setBetAmount} balance={balance} accent={ACCENT} />
+        <BetInput amount={betAmount} onChangeAmount={setBetAmount} balance={balance} accentColor={ACCENT} />
         <Pressable onPress={play} disabled={playing}>
           <LinearGradient colors={['#EC4899', '#DB2777']} style={s.playBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
             <Text style={s.playText}>{playing ? 'Flying...' : 'Bet'}</Text>
           </LinearGradient>
         </Pressable>
       </View>
+      </ScrollView>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.bg },
+  scroll: { paddingBottom: 120 },
+  bannerWrap: { width: SW, height: BANNER_HEIGHT, overflow: 'hidden', marginBottom: -20 },
+  bannerImage: { width: '100%', height: '100%' },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: palette.panel, alignItems: 'center', justifyContent: 'center' },
   backIcon: { color: palette.text, fontSize: 24, marginTop: -2 },

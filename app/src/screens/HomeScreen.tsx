@@ -31,16 +31,16 @@ const GAMES: { id: Screen; name: string; image?: ImageSourcePropType; desc: stri
   { id: 'dice', name: 'Dice', image: require('../../assets/DIce.png'), desc: 'Risk-managed rolls', color: gameColors.dice, stat: 'CUSTOM EDGE', gradient: gradients.cardDice, icon: 'dice', players: 632 },
   { id: 'mines', name: 'Mines', image: require('../../assets/Mines.png'), desc: 'Progressive cashout', color: gameColors.mines, stat: 'UP TO 24x', gradient: gradients.cardMines, icon: 'warning', players: 891 },
   { id: 'crash', name: 'Crash', image: require('../../assets/Crash.png'), desc: 'Exit before the bust', color: gameColors.crash, stat: 'REAL-TIME', gradient: gradients.cardCrash, icon: 'trending-up', players: 1567 },
-  { id: 'plinko', name: 'Plinko', desc: 'Drop & multiply', color: gameColors.plinko, stat: 'UP TO 110x', gradient: gradients.cardPlinko, icon: 'apps', players: 2134 },
-  { id: 'limbo', name: 'Limbo', desc: 'Set your target', color: gameColors.limbo, stat: 'INSTANT', gradient: gradients.cardLimbo, icon: 'rocket', players: 1876 },
-  { id: 'keno', name: 'Keno', desc: 'Pick & win big', color: gameColors.keno, stat: 'UP TO 10000x', gradient: gradients.cardKeno, icon: 'grid', players: 943 },
-  { id: 'wheel', name: 'Wheel', desc: 'Spin to win', color: gameColors.wheel, stat: 'UP TO 50x', gradient: gradients.cardWheel, icon: 'sync', players: 1654 },
-  { id: 'blackjack', name: 'Blackjack', desc: 'Beat the dealer', color: gameColors.blackjack, stat: '2.5x BJ', gradient: gradients.cardBlackjack, icon: 'card', players: 2891 },
-  { id: 'roulette', name: 'Roulette', desc: 'Red, black, or green', color: gameColors.roulette, stat: 'UP TO 36x', gradient: gradients.cardRoulette, icon: 'ellipse', players: 2456 },
-  { id: 'hilo', name: 'HiLo', desc: 'Higher or lower', color: gameColors.hilo, stat: 'STREAK', gradient: gradients.cardHilo, icon: 'swap-vertical', players: 1298 },
-  { id: 'tower', name: 'Tower', desc: 'Climb for riches', color: gameColors.tower, stat: 'RISK IT ALL', gradient: gradients.cardTower, icon: 'layers', players: 1123 },
-  { id: 'slots', name: 'Slots', desc: 'Classic slot machine', color: gameColors.slots, stat: 'JACKPOT', gradient: gradients.cardSlots, icon: 'diamond', players: 3201 },
-  { id: 'dragontower', name: 'Dragon Tower', desc: 'Escape the dragon', color: gameColors.dragontower, stat: 'ADVENTURE', gradient: gradients.cardDragontower, icon: 'flame', players: 1045 },
+  { id: 'plinko', name: 'Plinko', image: require('../../assets/plinko.jpeg'), desc: 'Drop & multiply', color: gameColors.plinko, stat: 'UP TO 110x', gradient: gradients.cardPlinko, icon: 'apps', players: 2134 },
+  { id: 'limbo', name: 'Limbo', image: require('../../assets/Limbo.jpeg'), desc: 'Set your target', color: gameColors.limbo, stat: 'INSTANT', gradient: gradients.cardLimbo, icon: 'rocket', players: 1876 },
+  { id: 'keno', name: 'Keno', image: require('../../assets/keno.jpeg'), desc: 'Pick & win big', color: gameColors.keno, stat: 'UP TO 10000x', gradient: gradients.cardKeno, icon: 'grid', players: 943 },
+  { id: 'wheel', name: 'Wheel', image: require('../../assets/wheel.jpeg'), desc: 'Spin to win', color: gameColors.wheel, stat: 'UP TO 50x', gradient: gradients.cardWheel, icon: 'sync', players: 1654 },
+  { id: 'blackjack', name: 'Blackjack', image: require('../../assets/blackjack.jpeg'), desc: 'Beat the dealer', color: gameColors.blackjack, stat: '2.5x BJ', gradient: gradients.cardBlackjack, icon: 'card', players: 2891 },
+  { id: 'roulette', name: 'Roulette', image: require('../../assets/Roulette.jpeg'), desc: 'Red, black, or green', color: gameColors.roulette, stat: 'UP TO 36x', gradient: gradients.cardRoulette, icon: 'ellipse', players: 2456 },
+  { id: 'hilo', name: 'HiLo', image: require('../../assets/HiLo.jpeg'), desc: 'Higher or lower', color: gameColors.hilo, stat: 'STREAK', gradient: gradients.cardHilo, icon: 'swap-vertical', players: 1298 },
+  { id: 'tower', name: 'Tower', image: require('../../assets/Tower.jpeg'), desc: 'Climb for riches', color: gameColors.tower, stat: 'RISK IT ALL', gradient: gradients.cardTower, icon: 'layers', players: 1123 },
+  { id: 'slots', name: 'Slots', image: require('../../assets/Slots.jpeg'), desc: 'Classic slot machine', color: gameColors.slots, stat: 'JACKPOT', gradient: gradients.cardSlots, icon: 'diamond', players: 3201 },
+  { id: 'dragontower', name: 'Dragon Tower', image: require('../../assets/DragonTower.jpeg'), desc: 'Escape the dragon', color: gameColors.dragontower, stat: 'ADVENTURE', gradient: gradients.cardDragontower, icon: 'flame', players: 1045 },
 ];
 
 // Auto-scrolling featured carousel (swipes every 5s)
@@ -81,22 +81,9 @@ function FeaturedCarousel({ games, onNavigate }: { games: typeof GAMES; onNaviga
     <Pressable onPress={() => onNavigate(game.id)} style={{ width: CAROUSEL_WIDTH }}>
       <View style={styles.featuredCard}>
         {game.image ? (
-          <>
-            <Image source={game.image} style={styles.featuredImage} resizeMode="cover" />
-            <LinearGradient
-              colors={['transparent', 'rgba(15,33,46,0.85)', '#0F212E']}
-              style={styles.featuredOverlay}
-              start={{ x: 0.5, y: 0.2 }}
-              end={{ x: 0.5, y: 1 }}
-            />
-          </>
+          <Image source={game.image} style={styles.featuredImage} resizeMode="cover" />
         ) : (
-          <LinearGradient
-            colors={[game.color + '25', palette.panel]}
-            style={styles.featuredGradBg}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          />
+          <View style={[styles.featuredGradBg, { backgroundColor: palette.panel }]} />
         )}
         <View style={styles.featuredContent}>
           <View style={[styles.liveBadge, { backgroundColor: game.color + '20' }]}>
@@ -236,24 +223,11 @@ function StripCard({ game, onPress }: { game: typeof GAMES[number]; onPress: () 
     >
       <Animated.View style={[styles.stripCard, { transform: [{ scale }] }]}>
         {game.image ? (
-          <>
-            <Image source={game.image} style={styles.stripCardImage} resizeMode="cover" />
-            <LinearGradient
-              colors={['transparent', 'rgba(15,33,46,0.8)', '#0F212E']}
-              style={styles.stripCardOverlay}
-              start={{ x: 0.5, y: 0.2 }}
-              end={{ x: 0.5, y: 1 }}
-            />
-          </>
+          <Image source={game.image} style={styles.stripCardImage} resizeMode="cover" />
         ) : (
-          <LinearGradient
-            colors={game.gradient as [string, string]}
-            style={styles.stripCardGrad}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-          >
+          <View style={[styles.stripCardGrad, { backgroundColor: palette.panel }]}>
             <Ionicons name={game.icon as any} size={36} color={game.color + '50'} />
-          </LinearGradient>
+          </View>
         )}
         <View style={styles.stripCardInfo}>
           <Text style={styles.stripCardName} numberOfLines={1}>{game.name}</Text>

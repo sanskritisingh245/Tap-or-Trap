@@ -1,12 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, ScrollView, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { BetInput } from '../components/BetInput';
 import { getCreditsBalance } from '../services/api';
+import { placeBet, settleBet } from '../services/gameApi';
 import { fonts, palette, gameColors, shadows } from '../theme/ui';
 
 const ACCENT = gameColors.hilo;
+const { width: SW } = Dimensions.get('window');
+const BANNER_HEIGHT = 200;
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const SUITS = ['♠', '♥', '♦', '♣'];
 
@@ -39,10 +42,13 @@ export default function HiloScreen({ onBack }: { onBack: () => void }) {
   }, []);
   useEffect(() => { loadBalance(); }, []);
 
-  const startGame = () => {
+  const startGame = async () => {
     const b = parseInt(betAmount);
     if (!b || b < 1 || b > balance) return;
-    setBalance(bal => bal - b);
+    try {
+      const res = await placeBet(b, 'hilo');
+      setBalance(res.balance);
+    } catch { return; }
     setBet(b);
     setPlaying(true);
     setStreak(0);
@@ -53,11 +59,10 @@ export default function HiloScreen({ onBack }: { onBack: () => void }) {
     resultScale.setValue(0);
   };
 
-  const guess = (higher: boolean) => {
+  const guess = async (higher: boolean) => {
     const nextCard = randomCard();
     const correct = higher ? nextCard.value >= currentCard.value : nextCard.value <= currentCard.value;
 
-    // Calculate odds-based multiplier
     const cardsHigher = 13 - currentCard.value + 1;
     const cardsLower = currentCard.value;
     const chance = higher ? cardsHigher / 13 : cardsLower / 13;
@@ -75,15 +80,22 @@ export default function HiloScreen({ onBack }: { onBack: () => void }) {
       setCurrentCard(nextCard);
     } else {
       setCurrentCard(nextCard);
+      try {
+        const res = await settleBet(0, 'hilo', false);
+        setBalance(res.balance);
+      } catch {}
       setResult({ won: false, payout: 0 });
       setPlaying(false);
       Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
     }
   };
 
-  const cashout = () => {
+  const cashout = async () => {
     const payout = Math.floor(bet * multiplier);
-    setBalance(b => b + payout);
+    try {
+      const res = await settleBet(payout, 'hilo', true);
+      setBalance(res.balance);
+    } catch {}
     setResult({ won: true, payout });
     setPlaying(false);
     Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
@@ -108,6 +120,17 @@ export default function HiloScreen({ onBack }: { onBack: () => void }) {
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* Banner */}
+        <View style={s.bannerWrap}>
+          <Image source={require('../../assets/HiLo.jpeg')} style={s.bannerImage} resizeMode="cover" />
+          <LinearGradient
+            colors={['transparent', 'rgba(15,33,46,0.6)', palette.bg]}
+            style={s.bannerOverlay}
+            start={{ x: 0.5, y: 0.2 }}
+            end={{ x: 0.5, y: 1 }}
+          />
+        </View>
+
         {/* Card history */}
         {cardHistory.length > 0 && (
           <View style={s.historyRow}>
@@ -159,7 +182,7 @@ export default function HiloScreen({ onBack }: { onBack: () => void }) {
         <View style={s.controls}>
           {!playing ? (
             <>
-              <BetInput value={betAmount} onChange={setBetAmount} balance={balance} accent={ACCENT} />
+              <BetInput amount={betAmount} onChangeAmount={setBetAmount} balance={balance} accentColor={ACCENT} />
               <Pressable onPress={startGame}>
                 <LinearGradient colors={['#6366F1', '#4F46E5']} style={s.actionBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                   <Text style={s.actionText}>Start Game</Text>
@@ -206,6 +229,9 @@ const s = StyleSheet.create({
   balPill: { backgroundColor: palette.panel, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6 },
   balText: { color: ACCENT, fontFamily: fonts.mono, fontSize: 14 },
   scroll: { paddingBottom: 120 },
+  bannerWrap: { width: SW, height: BANNER_HEIGHT, overflow: 'hidden', marginBottom: -20 },
+  bannerImage: { width: '100%', height: '100%' },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject },
   historyRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 },
   miniCard: { backgroundColor: palette.panel, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   miniRank: { fontFamily: fonts.mono, fontSize: 13 },

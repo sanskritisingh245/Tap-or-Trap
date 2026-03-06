@@ -1,12 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, Easing, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, Easing, ScrollView, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { BetInput } from '../components/BetInput';
 import { getCreditsBalance } from '../services/api';
+import { placeBet, settleBet } from '../services/gameApi';
 import { fonts, palette, gameColors, shadows } from '../theme/ui';
 
 const ACCENT = gameColors.roulette;
+const { width: SW } = Dimensions.get('window');
+const BANNER_HEIGHT = 200;
 
 type BetType = 'red' | 'black' | 'green' | 'odd' | 'even' | '1-18' | '19-36';
 const RED_NUMS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
@@ -17,8 +20,8 @@ function getColor(n: number): 'red' | 'black' | 'green' {
 }
 
 function getMultiplier(bet: BetType): number {
-  if (bet === 'green') return 36;
-  return 2;
+  if (bet === 'green') return 20;
+  return 1.9;
 }
 
 function doesWin(bet: BetType, result: number): boolean {
@@ -49,14 +52,18 @@ export default function RouletteScreen({ onBack }: { onBack: () => void }) {
   }, []);
   useEffect(() => { loadBalance(); }, []);
 
-  const spin = () => {
+  const spin = async () => {
     const bet = parseInt(betAmount);
     if (!bet || bet < 1 || bet > balance || spinning) return;
 
     setSpinning(true);
     setResult(null);
-    setBalance(b => b - bet);
     resultScale.setValue(0);
+
+    try {
+      const betRes = await placeBet(bet, 'roulette');
+      setBalance(betRes.balance);
+    } catch { setSpinning(false); return; }
 
     const num = Math.floor(Math.random() * 37); // 0-36
     const won = doesWin(betType, num);
@@ -70,8 +77,11 @@ export default function RouletteScreen({ onBack }: { onBack: () => void }) {
       duration: 3000,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start(() => {
-      if (payout > 0) setBalance(b => b + payout);
+    }).start(async () => {
+      try {
+        const res = await settleBet(payout, 'roulette', won);
+        setBalance(res.balance);
+      } catch {}
       setResult({ number: num, won, payout });
       setHistory(h => [num, ...h.slice(0, 14)]);
       setSpinning(false);
@@ -108,6 +118,17 @@ export default function RouletteScreen({ onBack }: { onBack: () => void }) {
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* Banner */}
+        <View style={s.bannerWrap}>
+          <Image source={require('../../assets/Roulette.jpeg')} style={s.bannerImage} resizeMode="cover" />
+          <LinearGradient
+            colors={['transparent', 'rgba(15,33,46,0.6)', palette.bg]}
+            style={s.bannerOverlay}
+            start={{ x: 0.5, y: 0.2 }}
+            end={{ x: 0.5, y: 1 }}
+          />
+        </View>
+
         {/* Wheel visual */}
         <View style={s.wheelArea}>
           <Animated.View style={[s.wheel, { transform: [{ rotate: rotation }] }]}>
@@ -165,7 +186,7 @@ export default function RouletteScreen({ onBack }: { onBack: () => void }) {
         </View>
 
         <View style={s.controls}>
-          <BetInput value={betAmount} onChange={setBetAmount} balance={balance} accent={ACCENT} />
+          <BetInput amount={betAmount} onChangeAmount={setBetAmount} balance={balance} accentColor={ACCENT} />
           <Pressable onPress={spin} disabled={spinning}>
             <LinearGradient colors={['#EF4444', '#DC2626']} style={s.spinBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
               <Text style={s.spinText}>{spinning ? 'Spinning...' : 'Spin'}</Text>
@@ -186,6 +207,9 @@ const s = StyleSheet.create({
   balPill: { backgroundColor: palette.panel, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6 },
   balText: { color: ACCENT, fontFamily: fonts.mono, fontSize: 14 },
   scroll: { paddingBottom: 120 },
+  bannerWrap: { width: SW, height: BANNER_HEIGHT, overflow: 'hidden', marginBottom: -20 },
+  bannerImage: { width: '100%', height: '100%' },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject },
   wheelArea: { alignItems: 'center', marginTop: 16, height: 200 },
   wheel: { width: 180, height: 180, borderRadius: 90, borderWidth: 6, borderColor: palette.panelSoft },
   wheelInner: { flex: 1, borderRadius: 84, alignItems: 'center', justifyContent: 'center' },

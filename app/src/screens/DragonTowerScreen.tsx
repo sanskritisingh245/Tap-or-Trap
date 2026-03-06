@@ -1,19 +1,22 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, ScrollView, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { BetInput } from '../components/BetInput';
 import { getCreditsBalance } from '../services/api';
+import { placeBet, settleBet } from '../services/gameApi';
 import { fonts, palette, gameColors, shadows } from '../theme/ui';
 
 const ACCENT = gameColors.dragontower;
+const { width: SW } = Dimensions.get('window');
+const BANNER_HEIGHT = 200;
 const COLS = 4;
 const MAX_FLOORS = 9;
 
 type Difficulty = 'Easy' | 'Medium' | 'Hard' | 'Expert';
 const EGGS_PER_FLOOR: Record<Difficulty, number> = { Easy: 1, Medium: 2, Hard: 2, Expert: 3 };
 const SAFE_PER_FLOOR: Record<Difficulty, number> = { Easy: 3, Medium: 2, Hard: 2, Expert: 1 };
-const MULT_STEP: Record<Difficulty, number> = { Easy: 1.31, Medium: 1.96, Hard: 2.94, Expert: 3.88 };
+const MULT_STEP: Record<Difficulty, number> = { Easy: 1.2, Medium: 1.45, Hard: 1.8, Expert: 2.2 };
 
 type TileState = 'hidden' | 'safe' | 'egg';
 
@@ -49,10 +52,13 @@ export default function DragonTowerScreen({ onBack }: { onBack: () => void }) {
     return () => loop.stop();
   }, []);
 
-  const startGame = () => {
+  const startGame = async () => {
     const b = parseInt(betAmount);
     if (!b || b < 1 || b > balance) return;
-    setBalance(bal => bal - b);
+    try {
+      const res = await placeBet(b, 'dragontower');
+      setBalance(res.balance);
+    } catch { return; }
     setBet(b);
     setResult(null);
     resultScale.setValue(0);
@@ -75,16 +81,19 @@ export default function DragonTowerScreen({ onBack }: { onBack: () => void }) {
     setPlaying(true);
   };
 
-  const selectTile = (col: number) => {
+  const selectTile = async (col: number) => {
     if (!playing || currentFloor >= MAX_FLOORS) return;
 
     const newGrid = grid.map(r => [...r]);
     const isEgg = eggPositions[currentFloor].includes(col);
 
     if (isEgg) {
-      // Reveal all eggs
       eggPositions[currentFloor].forEach(e => { newGrid[currentFloor][e] = 'egg'; });
       setGrid(newGrid);
+      try {
+        const res = await settleBet(0, 'dragontower', false);
+        setBalance(res.balance);
+      } catch {}
       setResult({ won: false, payout: 0 });
       setPlaying(false);
       Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
@@ -97,7 +106,10 @@ export default function DragonTowerScreen({ onBack }: { onBack: () => void }) {
 
       if (currentFloor === MAX_FLOORS - 1) {
         const payout = Math.floor(bet * newMult);
-        setBalance(b => b + payout);
+        try {
+          const res = await settleBet(payout, 'dragontower', true);
+          setBalance(res.balance);
+        } catch {}
         setResult({ won: true, payout });
         setPlaying(false);
         Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
@@ -105,9 +117,12 @@ export default function DragonTowerScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const cashout = () => {
+  const cashout = async () => {
     const payout = Math.floor(bet * multiplier);
-    setBalance(b => b + payout);
+    try {
+      const res = await settleBet(payout, 'dragontower', true);
+      setBalance(res.balance);
+    } catch {}
     setResult({ won: true, payout });
     setPlaying(false);
     Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
@@ -127,6 +142,17 @@ export default function DragonTowerScreen({ onBack }: { onBack: () => void }) {
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* Banner */}
+        <View style={s.bannerWrap}>
+          <Image source={require('../../assets/DragonTower.jpeg')} style={s.bannerImage} resizeMode="cover" />
+          <LinearGradient
+            colors={['transparent', 'rgba(15,33,46,0.6)', palette.bg]}
+            style={s.bannerOverlay}
+            start={{ x: 0.5, y: 0.2 }}
+            end={{ x: 0.5, y: 1 }}
+          />
+        </View>
+
         {/* Dragon */}
         <Animated.View style={[s.dragonArea, { transform: [{ scale: dragonScale }] }]}>
           <Text style={s.dragonEmoji}>🐉</Text>
@@ -200,7 +226,7 @@ export default function DragonTowerScreen({ onBack }: { onBack: () => void }) {
                   </Pressable>
                 ))}
               </View>
-              <BetInput value={betAmount} onChange={setBetAmount} balance={balance} accent={ACCENT} />
+              <BetInput amount={betAmount} onChangeAmount={setBetAmount} balance={balance} accentColor={ACCENT} />
               <Pressable onPress={startGame}>
                 <LinearGradient colors={['#22D3EE', '#06B6D4']} style={s.actionBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                   <Text style={s.actionText}>Enter Tower</Text>
@@ -231,6 +257,9 @@ const s = StyleSheet.create({
   balPill: { backgroundColor: palette.panel, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6 },
   balText: { color: ACCENT, fontFamily: fonts.mono, fontSize: 14 },
   scroll: { paddingBottom: 120 },
+  bannerWrap: { width: SW, height: BANNER_HEIGHT, overflow: 'hidden', marginBottom: -20 },
+  bannerImage: { width: '100%', height: '100%' },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject },
   dragonArea: { alignItems: 'center', marginTop: 8 },
   dragonEmoji: { fontSize: 48 },
   floorText: { color: ACCENT, fontFamily: fonts.mono, fontSize: 13, marginTop: 4 },

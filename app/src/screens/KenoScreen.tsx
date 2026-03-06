@@ -1,27 +1,30 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Pressable, ScrollView, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { BetInput } from '../components/BetInput';
 import { getCreditsBalance } from '../services/api';
+import { placeBet, settleBet } from '../services/gameApi';
 import { fonts, palette, gameColors, shadows } from '../theme/ui';
 
 const ACCENT = gameColors.keno;
+const { width: SW } = Dimensions.get('window');
+const BANNER_HEIGHT = 200;
 const GRID = 40;
 const MAX_PICKS = 10;
 
 function getKenoMultiplier(picks: number, hits: number): number {
   const table: Record<number, number[]> = {
-    1: [0, 3.8],
-    2: [0, 1.5, 5.5],
-    3: [0, 0, 2.5, 26],
-    4: [0, 0, 1.5, 6, 80],
-    5: [0, 0, 0, 3, 12, 300],
-    6: [0, 0, 0, 1.5, 5, 30, 800],
-    7: [0, 0, 0, 1, 3, 12, 72, 1500],
-    8: [0, 0, 0, 0, 2, 8, 30, 200, 3000],
-    9: [0, 0, 0, 0, 1.5, 4, 15, 100, 600, 5000],
-    10: [0, 0, 0, 0, 0, 3, 10, 50, 250, 1500, 10000],
+    1: [0, 2.5],
+    2: [0, 1.2, 4],
+    3: [0, 0, 2, 10],
+    4: [0, 0, 1.2, 4, 20],
+    5: [0, 0, 0, 2, 8, 40],
+    6: [0, 0, 0, 1.2, 3, 15, 60],
+    7: [0, 0, 0, 0.8, 2, 8, 30, 80],
+    8: [0, 0, 0, 0, 1.5, 5, 15, 50, 100],
+    9: [0, 0, 0, 0, 1, 3, 10, 40, 80, 150],
+    10: [0, 0, 0, 0, 0, 2, 6, 20, 60, 120, 250],
   };
   return table[picks]?.[hits] ?? 0;
 }
@@ -58,7 +61,7 @@ export default function KenoScreen({ onBack }: { onBack: () => void }) {
     setSelected(nums);
   };
 
-  const play = () => {
+  const play = async () => {
     const bet = parseInt(betAmount);
     if (!bet || bet < 1 || bet > balance || playing || selected.length === 0) return;
 
@@ -66,8 +69,12 @@ export default function KenoScreen({ onBack }: { onBack: () => void }) {
     setResult(null);
     setDrawn([]);
     setRevealIdx(-1);
-    setBalance(b => b - bet);
     resultScale.setValue(0);
+
+    try {
+      const betRes = await placeBet(bet, 'keno');
+      setBalance(betRes.balance);
+    } catch { setPlaying(false); return; }
 
     // Draw 10 unique numbers
     const drawnNums: number[] = [];
@@ -78,7 +85,7 @@ export default function KenoScreen({ onBack }: { onBack: () => void }) {
 
     // Reveal one by one
     let i = 0;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       if (i < drawnNums.length) {
         setDrawn(d => [...d, drawnNums[i]]);
         setRevealIdx(i);
@@ -88,7 +95,10 @@ export default function KenoScreen({ onBack }: { onBack: () => void }) {
         const hits = selected.filter(n => drawnNums.includes(n)).length;
         const mult = getKenoMultiplier(selected.length, hits);
         const payout = Math.floor(bet * mult);
-        if (payout > 0) setBalance(b => b + payout);
+        try {
+          const res = await settleBet(payout, 'keno', payout > 0);
+          setBalance(res.balance);
+        } catch {}
         setResult({ hits, mult, payout });
         setPlaying(false);
         Animated.spring(resultScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
@@ -110,6 +120,17 @@ export default function KenoScreen({ onBack }: { onBack: () => void }) {
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* Banner */}
+        <View style={s.bannerWrap}>
+          <Image source={require('../../assets/keno.jpeg')} style={s.bannerImage} resizeMode="cover" />
+          <LinearGradient
+            colors={['transparent', 'rgba(15,33,46,0.6)', palette.bg]}
+            style={s.bannerOverlay}
+            start={{ x: 0.5, y: 0.2 }}
+            end={{ x: 0.5, y: 1 }}
+          />
+        </View>
+
         {/* Grid */}
         <View style={s.grid}>
           {Array.from({ length: GRID }).map((_, i) => {
@@ -158,7 +179,7 @@ export default function KenoScreen({ onBack }: { onBack: () => void }) {
         )}
 
         <View style={s.controls}>
-          <BetInput value={betAmount} onChange={setBetAmount} balance={balance} accent={ACCENT} />
+          <BetInput amount={betAmount} onChangeAmount={setBetAmount} balance={balance} accentColor={ACCENT} />
           <Pressable onPress={play} disabled={playing || selected.length === 0}>
             <LinearGradient colors={['#14B8A6', '#0D9488']} style={[s.playBtn, (playing || selected.length === 0) && { opacity: 0.5 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
               <Text style={s.playText}>{playing ? 'Drawing...' : 'Play'}</Text>
@@ -179,6 +200,9 @@ const s = StyleSheet.create({
   balPill: { backgroundColor: palette.panel, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6 },
   balText: { color: ACCENT, fontFamily: fonts.mono, fontSize: 14 },
   scroll: { paddingBottom: 120 },
+  bannerWrap: { width: SW, height: BANNER_HEIGHT, overflow: 'hidden', marginBottom: -20 },
+  bannerImage: { width: '100%', height: '100%' },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 16, marginTop: 8 },
   tile: { width: '11.5%', aspectRatio: 1, borderRadius: 8, backgroundColor: palette.panel, alignItems: 'center', justifyContent: 'center' },
   tileText: { color: palette.muted, fontFamily: fonts.mono, fontSize: 13 },
