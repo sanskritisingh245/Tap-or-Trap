@@ -1,7 +1,5 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  View, Text, TouchableOpacity, Pressable, StyleSheet, ActivityIndicator, Animated,
-} from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, ActivityIndicator, Animated, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useMatch } from '../hooks/useMatch';
@@ -12,7 +10,6 @@ import { RoomJoiner } from '../components/RoomJoiner';
 import { CountdownReveal } from '../components/CountdownReveal';
 import { MatchHistory } from '../components/MatchHistory';
 import { Leaderboard } from '../components/Leaderboard';
-import { TierBadge } from '../components/TierBadge';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { getCreditsBalance, topUpCredits } from '../services/api';
 import { deriveUsername } from '../utils/username';
@@ -20,24 +17,16 @@ import { fonts, palette, shadows } from '../theme/ui';
 
 type UIMode = 'lobby' | 'join_code' | 'history' | 'leaderboard' | 'game';
 
-const ACHIEVEMENT_LABELS: Record<string, string> = {
-  lightning: '⚡ LIGHTNING — Sub-150ms reaction!',
-  flash: '🔥 FLASH — Sub-100ms reaction!',
-  untouchable: '🛡 UNTOUCHABLE — 5 win streak!',
-  demon: '😈 DEMON — 10 win streak!',
-  veteran: '🎖 VETERAN — 50 matches played!',
-  centurion: '🏛 CENTURION — 100 matches played!',
-};
+const WIN_LINES = ['Excellent timing', 'Sharp finish', 'Clean execution'];
+const LOSE_LINES = ['Close one', 'Try again', 'You are improving'];
 
-const WIN_TAUNTS = ['NASTY.', 'TOO FAST.', 'CLEAN WIN.', 'ELITE.', 'DESTROYED.'];
-const LOSE_TAUNTS = ['OOF.', 'ALMOST.', 'RUN IT BACK.', 'NEXT TIME.', 'SO CLOSE.'];
-
-function pickTaunt(won: boolean): string {
-  const list = won ? WIN_TAUNTS : LOSE_TAUNTS;
-  return list[Math.floor(Math.random() * list.length)];
-}
-
-export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wallet: { publicKey: string | null; connected: boolean; loading: boolean; connect: () => Promise<void> } }) {
+export default function GameScreen({
+  onBack,
+  wallet,
+}: {
+  onBack?: () => void;
+  wallet: { publicKey: string | null; connected: boolean; loading: boolean; connect: () => Promise<void> };
+}) {
   const match = useMatch();
   const { isStill } = useAccelerometer(match.phase === 'standoff');
 
@@ -46,112 +35,81 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinLoading, setJoinLoading] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
-  const [taunt, setTaunt] = useState('');
-  const [achievementToast, setAchievementToast] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [line, setLine] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [lobbyLoading, setLobbyLoading] = useState(false);
 
   const pulse = useRef(new Animated.Value(1)).current;
-  const drawPop = useRef(new Animated.Value(1)).current;
-  const toastOpacity = useRef(new Animated.Value(0)).current;
-  const errorOpacity = useRef(new Animated.Value(0)).current;
+  const drawScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const p = Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 1.03, duration: 850, useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 1, duration: 850, useNativeDriver: true }),
-    ]));
-    p.start();
-    return () => p.stop();
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.03, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
   }, []);
 
   useEffect(() => {
     if (match.phase === 'draw') {
-      const pop = Animated.loop(Animated.sequence([
-        Animated.timing(drawPop, { toValue: 1.08, duration: 140, useNativeDriver: true }),
-        Animated.timing(drawPop, { toValue: 1, duration: 140, useNativeDriver: true }),
-      ]));
-      pop.start();
-      return () => pop.stop();
+      const a = Animated.loop(
+        Animated.sequence([
+          Animated.timing(drawScale, { toValue: 1.07, duration: 120, useNativeDriver: true }),
+          Animated.timing(drawScale, { toValue: 1, duration: 120, useNativeDriver: true }),
+        ])
+      );
+      a.start();
+      return () => a.stop();
     }
   }, [match.phase]);
 
   useEffect(() => {
     if (match.phase === 'result' && match.result) {
       setShowCountdown(true);
-      setTaunt(pickTaunt(match.result.won));
-      if (match.result.newAchievements.length > 0) {
-        const achId = match.result.newAchievements[0];
-        setAchievementToast(ACHIEVEMENT_LABELS[achId] || achId);
-        Animated.sequence([
-          Animated.timing(toastOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.delay(3000),
-          Animated.timing(toastOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
-        ]).start(() => setAchievementToast(null));
-      }
+      const pool = match.result.won ? WIN_LINES : LOSE_LINES;
+      setLine(pool[Math.floor(Math.random() * pool.length)]);
     }
   }, [match.phase]);
 
   useEffect(() => {
-    if (match.phase === 'draw') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    if (match.phase === 'forfeit') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-    if (match.phase === 'result' && match.result?.won) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    if (match.phase === 'draw') Haptics.selectionAsync().catch(() => {});
+    if (match.phase === 'result' && match.result?.won) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
   }, [match.phase]);
 
   const refreshCredits = useCallback(async () => {
-    try { const balance = await getCreditsBalance(); setCredits(balance); return balance; }
-    catch { setCredits(0); return 0; }
+    try {
+      const b = await getCreditsBalance();
+      setCredits(b);
+      return b;
+    } catch {
+      setCredits(0);
+      return 0;
+    }
   }, []);
-
-  const showError = useCallback((msg: string) => {
-    setErrorMsg(msg);
-    Animated.sequence([
-      Animated.timing(errorOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-      Animated.delay(3000),
-      Animated.timing(errorOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
-    ]).start(() => setErrorMsg(null));
-  }, []);
-
-  const renderErrorToast = () => {
-    if (!errorMsg) return null;
-    return (
-      <Animated.View style={[styles.toast, { opacity: errorOpacity }]} pointerEvents="none">
-        <View style={[styles.toastGrad, { backgroundColor: 'rgba(255,71,87,0.95)' }]}>
-          <Text style={styles.toastText}>{errorMsg}</Text>
-        </View>
-      </Animated.View>
-    );
-  };
-
-  const renderAchievementToast = () => {
-    if (!achievementToast) return null;
-    return (
-      <Animated.View style={[styles.toast, { opacity: toastOpacity }]} pointerEvents="none">
-        <LinearGradient colors={['rgba(59,130,246,0.95)', 'rgba(16,185,129,0.95)']} style={styles.toastGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-          <Text style={styles.toastTitle}>ACHIEVEMENT UNLOCKED</Text>
-          <Text style={styles.toastText}>{achievementToast}</Text>
-        </LinearGradient>
-      </Animated.View>
-    );
-  };
 
   if (!wallet.connected) {
     return (
       <View style={styles.screen}>
-        <LinearGradient
-          colors={['#E8DDCF', '#D8CCC0', '#8A8795', '#23283F']}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-        />
+        <AmbientBackground tone="cool" />
         <View style={styles.card}>
-          <Text style={[styles.title, { color: '#3C3228', fontSize: 36 }]}>TAPRUSH</Text>
+          <Text style={styles.title}>TapRush</Text>
           <TouchableOpacity
-            style={[styles.primaryBtn, { backgroundColor: '#2E3762', borderWidth: 1.5, borderColor: 'rgba(107,110,207,0.9)' }]}
-            onPress={async () => { try { await wallet.connect(); await refreshCredits(); } catch {} }}
+            style={styles.primaryWrap}
+            onPress={async () => {
+              try {
+                await wallet.connect();
+                await refreshCredits();
+              } catch {}
+            }}
             disabled={wallet.loading}
-            activeOpacity={0.86}
+            activeOpacity={0.88}
           >
-            {wallet.loading ? <ActivityIndicator color="#DDBA7C" /> : <Text style={[styles.primaryBtnText, { color: '#EED8B6' }]}>CONNECT</Text>}
+            <LinearGradient colors={[palette.primary, palette.primaryStrong]} style={styles.primaryBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              {wallet.loading ? <ActivityIndicator color={palette.buttonText} /> : <Text style={styles.primaryText}>Connect Wallet</Text>}
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
@@ -162,10 +120,15 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
     return (
       <RoomJoiner
         onJoin={async (code) => {
-          setJoinError(null); setJoinLoading(true);
-          try { await match.joinRoom(code); setUiMode('game'); }
-          catch (err: any) { setJoinError(err.message); }
-          finally { setJoinLoading(false); }
+          setJoinError(null);
+          setJoinLoading(true);
+          try {
+            await match.joinRoom(code);
+          } catch (e: any) {
+            setJoinError(e?.message || 'Join failed');
+          } finally {
+            setJoinLoading(false);
+          }
         }}
         onCancel={() => setUiMode('lobby')}
         error={joinError}
@@ -184,24 +147,12 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
   if (match.phase === 'queued') {
     return (
       <View style={styles.screen}>
-        <LinearGradient
-          colors={['#E8DDCF', '#D8CCC0', '#8A8795', '#23283F']}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-        />
-        <Animated.View style={[styles.card, { transform: [{ scale: pulse }], backgroundColor: 'rgba(39,42,59,0.9)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }]}>
-          <ActivityIndicator size="large" color="#62EBFF" style={{ marginBottom: 12 }} />
-          <Text style={[styles.title, { fontSize: 28, color: '#EED8B6' }]}>SEARCHING</Text>
-          <Text style={{ color: 'rgba(237,232,227,0.6)', fontFamily: fonts.body, fontSize: 14, marginTop: 4 }}>
-            Looking for an opponent...
-          </Text>
-          <TouchableOpacity
-            style={[styles.secondaryBtn, { backgroundColor: 'rgba(255,71,87,0.12)', borderWidth: 1, borderColor: 'rgba(255,71,87,0.25)', marginTop: 20 }]}
-            onPress={async () => { await match.leaveQueue(); setUiMode('lobby'); }}
-            activeOpacity={0.86}
-          >
-            <Text style={[styles.secondaryText, { color: '#FF4757' }]}>CANCEL</Text>
+        <AmbientBackground tone="cool" />
+        <Animated.View style={[styles.card, { transform: [{ scale: pulse }] }]}>
+          <ActivityIndicator size="large" color={palette.primary} />
+          <Text style={styles.subtitle}>Finding Opponent</Text>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={async () => { await match.leaveQueue(); setUiMode('lobby'); }} activeOpacity={0.85}>
+            <Text style={styles.secondaryText}>Cancel</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -213,15 +164,10 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
       <Pressable style={styles.screen} onPress={match.handleTap}>
         <AmbientBackground tone="warm" />
         <View style={styles.card}>
-          <Text style={styles.icon}>{isStill ? '🧊' : '📳'}</Text>
-          <View style={styles.meterTrack}>
-            <LinearGradient
-              colors={isStill ? [palette.success, palette.success + 'CC'] : [palette.danger, palette.danger + 'CC']}
-              style={styles.meterFill}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            />
+          <Text style={styles.icon}>{isStill ? 'Ready' : 'Keep Still'}</Text>
+          <View style={styles.track}>
+            <View style={[styles.fill, { backgroundColor: isStill ? palette.success : palette.danger }]} />
           </View>
-          <Text style={styles.meterLabel}>{isStill ? 'STEADY' : 'MOVE = LOSE'}</Text>
         </View>
       </Pressable>
     );
@@ -231,92 +177,53 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
     return (
       <Pressable style={styles.drawScreen} onPress={match.handleTap}>
         <AmbientBackground tone="danger" />
-        <LinearGradient
-          colors={['rgba(59,130,246,0.15)', 'transparent']}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0.5, y: 0.3 }} end={{ x: 0.5, y: 0.8 }}
-        />
-        <Animated.Text style={[styles.drawTitle, { transform: [{ scale: drawPop }], textShadowColor: 'rgba(59,130,246,0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 30 }]}>TAP!</Animated.Text>
+        <Animated.Text style={[styles.drawText, { transform: [{ scale: drawScale }] }]}>TAP</Animated.Text>
       </Pressable>
     );
   }
 
   if (match.phase === 'forfeit') {
     return (
-      <View style={styles.screen}>
-        <AmbientBackground tone="danger" />
-        <View style={styles.card}>
-          <Text style={styles.title}>TOO EARLY</Text>
-          <Text style={styles.small}>💀</Text>
-        </View>
-      </View>
+      <View style={styles.screen}><AmbientBackground tone="danger" /><View style={styles.card}><Text style={styles.title}>Too Early</Text></View></View>
     );
   }
 
   if (match.phase === 'waiting_result') {
     return (
-      <View style={styles.screen}>
-        <AmbientBackground tone="cool" />
-        <View style={styles.card}>
-          <Text style={styles.icon}>⏳</Text>
-          <ActivityIndicator size="large" color={palette.success} />
-        </View>
-      </View>
+      <View style={styles.screen}><AmbientBackground tone="cool" /><View style={styles.card}><ActivityIndicator size="large" color={palette.success} /></View></View>
     );
   }
 
   if (match.phase === 'result' && match.result) {
     if (showCountdown) return <CountdownReveal onComplete={() => setShowCountdown(false)} />;
+    const { won, reaction, opponentReaction, opponent, currentStreak, bestReaction } = match.result;
 
-    const { won, reaction, opponentReaction, opponent, currentStreak, bestReaction, tier } = match.result;
     return (
       <View style={styles.screen}>
         <AmbientBackground tone={won ? 'cool' : 'danger'} />
-        {renderAchievementToast()}
-        <LinearGradient
-          colors={won
-            ? ['rgba(59,130,246,0.12)', 'rgba(59,130,246,0.03)']
-            : ['rgba(255,71,87,0.12)', 'rgba(255,71,87,0.03)']
-          }
-          style={styles.resultCard}
-          start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}
-        >
-          <View style={styles.resultHeader}>
-            <Text style={styles.title}>{won ? 'WIN' : 'LOSE'}</Text>
-            <TierBadge tier={tier} size="small" />
-          </View>
-          <Text style={styles.taunt}>{taunt}</Text>
-          <Text style={styles.vs}>{deriveUsername(opponent || '')}</Text>
+        <View style={[styles.card, won ? { borderColor: 'rgba(65,210,140,0.45)' } : { borderColor: 'rgba(255,90,122,0.45)' }]}>
+          <Text style={styles.title}>{won ? 'Victory' : 'Defeat'}</Text>
+          <Text style={styles.small}>{line}</Text>
+          <Text style={styles.small}>{deriveUsername(opponent || '')}</Text>
 
-          <View style={styles.scoreRow}>
-            <LinearGradient colors={[palette.panelSoft, palette.panelSoft + '80']} style={styles.scoreCol} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
-              <Text style={styles.scoreTag}>YOU</Text>
-              <Text style={styles.score}>{reaction !== null && reaction >= 0 ? `${Math.round(reaction)}ms` : '-'}</Text>
-            </LinearGradient>
-            <LinearGradient colors={[palette.panelSoft, palette.panelSoft + '80']} style={styles.scoreCol} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
-              <Text style={styles.scoreTag}>THEM</Text>
-              <Text style={styles.score}>{opponentReaction !== null && opponentReaction >= 0 ? `${Math.round(opponentReaction)}ms` : '-'}</Text>
-            </LinearGradient>
+          <View style={styles.metricsRow}>
+            <View style={styles.metric}><Text style={styles.metricLabel}>You</Text><Text style={styles.metricValue}>{reaction !== null && reaction >= 0 ? `${Math.round(reaction)}ms` : '-'}</Text></View>
+            <View style={styles.metric}><Text style={styles.metricLabel}>Them</Text><Text style={styles.metricValue}>{opponentReaction !== null && opponentReaction >= 0 ? `${Math.round(opponentReaction)}ms` : '-'}</Text></View>
           </View>
 
-          {won && currentStreak >= 2 ? <Text style={styles.good}>{currentStreak}x STREAK 🔥</Text> : null}
-          {bestReaction !== null && reaction !== null && reaction > 0 && reaction <= bestReaction ? <Text style={styles.good}>NEW PB ⚡</Text> : null}
+          {won && currentStreak >= 2 ? <Text style={styles.good}>{currentStreak} win streak</Text> : null}
+          {bestReaction !== null && reaction !== null && reaction > 0 && reaction <= bestReaction ? <Text style={styles.good}>New personal best</Text> : null}
 
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={async () => { match.reset(); await refreshCredits(); setUiMode('game'); try { await match.joinQueue(); } catch { setUiMode('lobby'); } }}
-            activeOpacity={0.86}
-          >
-            <Text style={styles.primaryBtnText}>REMATCH</Text>
+          <TouchableOpacity style={styles.primaryWrap} onPress={async () => { match.reset(); await refreshCredits(); try { await match.joinQueue(); } catch { setUiMode('lobby'); } }} activeOpacity={0.88}>
+            <LinearGradient colors={[palette.primary, palette.primaryStrong]} style={styles.primaryBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              <Text style={styles.primaryText}>Rematch</Text>
+            </LinearGradient>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={async () => { match.reset(); await refreshCredits(); setUiMode('lobby'); }}
-            activeOpacity={0.86}
-          >
-            <Text style={styles.secondaryText}>LOBBY</Text>
+
+          <TouchableOpacity style={styles.secondaryBtn} onPress={async () => { match.reset(); await refreshCredits(); setUiMode('lobby'); }} activeOpacity={0.85}>
+            <Text style={styles.secondaryText}>Lobby</Text>
           </TouchableOpacity>
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -326,13 +233,9 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
       <View style={styles.screen}>
         <AmbientBackground tone="danger" />
         <View style={styles.card}>
-          <Text style={styles.title}>CANCELLED</Text>
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={async () => { match.reset(); await refreshCredits(); setUiMode('lobby'); }}
-            activeOpacity={0.86}
-          >
-            <Text style={styles.primaryBtnText}>LOBBY</Text>
+          <Text style={styles.title}>Match Cancelled</Text>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={async () => { match.reset(); await refreshCredits(); setUiMode('lobby'); }} activeOpacity={0.85}>
+            <Text style={styles.secondaryText}>Back</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -340,72 +243,167 @@ export default function GameScreen({ onBack, wallet }: { onBack?: () => void; wa
   }
 
   return (
-    <>
-      {renderErrorToast()}
+    <View style={{ flex: 1 }}>
       <LobbyMenu
         playsRemaining={credits}
         walletAddress={wallet.publicKey || ''}
         onBack={onBack}
         onFindRandom={async () => {
-          try { setErrorMsg(null); await match.joinQueue(); }
-          catch (err: any) { showError(err.message || 'Failed to join queue'); }
+          if (lobbyLoading) return;
+          setLobbyLoading(true);
+          setError(null);
+          try {
+            await match.joinQueue();
+          } catch (e: any) {
+            const msg = e?.message || 'Unable to join queue';
+            setError(msg);
+            Alert.alert('Find Match Failed', msg);
+          } finally {
+            setLobbyLoading(false);
+          }
         }}
         onChallengeFreund={async () => {
-          try { setErrorMsg(null); await match.createRoom(); }
-          catch (err: any) { showError(err.message || 'Failed to create room'); }
+          if (lobbyLoading) return;
+          setLobbyLoading(true);
+          setError(null);
+          try {
+            await match.createRoom();
+          } catch (e: any) {
+            const msg = e?.message || 'Unable to create room';
+            setError(msg);
+            Alert.alert('Create Room Failed', msg);
+          } finally {
+            setLobbyLoading(false);
+          }
         }}
         onJoinWithCode={() => setUiMode('join_code')}
         onViewHistory={() => setUiMode('history')}
         onViewLeaderboard={() => setUiMode('leaderboard')}
-        onTopUp={async () => { try { const b = await topUpCredits(); setCredits(b); } catch {} }}
+        onTopUp={async () => {
+          try {
+            const balance = await topUpCredits();
+            setCredits(balance);
+          } catch (e: any) {
+            Alert.alert('Top Up Failed', e?.message || 'Could not top up');
+          }
+        }}
         onRefreshCredits={refreshCredits}
       />
-    </>
+      {lobbyLoading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={palette.primary} />
+            <Text style={styles.loadingLabel}>Connecting...</Text>
+          </View>
+        </View>
+      )}
+      {error && !lobbyLoading ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.bg, justifyContent: 'center', padding: 18 },
+  screen: {
+    flex: 1,
+    backgroundColor: palette.bg,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
   card: {
-    borderRadius: 14, backgroundColor: palette.panel, padding: 22, alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panel,
+    padding: 20,
+    alignItems: 'center',
     ...shadows.medium,
   },
-  resultCard: {
-    borderRadius: 14, padding: 22, alignItems: 'center',
-    ...shadows.medium,
-  },
-  title: { color: palette.text, fontFamily: fonts.display, fontSize: 44, lineHeight: 46 },
-  small: { marginTop: 8, fontSize: 40 },
-  icon: { fontSize: 40, marginBottom: 10 },
-  primaryBtn: {
-    marginTop: 12, width: '100%', borderRadius: 14,
-    backgroundColor: palette.primaryStrong, paddingVertical: 14, alignItems: 'center',
-    ...shadows.glow(palette.primary),
-  },
-  primaryBtnText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 24, lineHeight: 26 },
+  title: { color: palette.text, fontFamily: fonts.display, fontSize: 34, marginBottom: 4 },
+  subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, marginTop: 10 },
+  small: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, marginTop: 3 },
+
+  primaryWrap: { width: '100%', borderRadius: 14, overflow: 'hidden', marginTop: 14 },
+  primaryBtn: { paddingVertical: 14, alignItems: 'center' },
+  primaryText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 20 },
+
   secondaryBtn: {
-    marginTop: 8, width: '100%', borderRadius: 12,
-    backgroundColor: palette.panelSoft, paddingVertical: 11, alignItems: 'center',
+    width: '100%',
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panelSoft,
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   secondaryText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
-  meterTrack: {
-    marginTop: 4, width: '100%', height: 18, borderRadius: 10,
-    backgroundColor: palette.bgAlt, overflow: 'hidden',
+
+  icon: { color: palette.text, fontFamily: fonts.display, fontSize: 28, marginBottom: 10 },
+  track: {
+    width: '100%',
+    height: 16,
+    borderRadius: 10,
+    backgroundColor: palette.bgAlt,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    overflow: 'hidden',
   },
-  meterFill: { height: '100%', width: '100%' },
-  meterLabel: { marginTop: 8, color: palette.text, fontFamily: fonts.display, fontSize: 28 },
-  drawScreen: { flex: 1, backgroundColor: 'rgba(59,130,246,0.12)', justifyContent: 'center', alignItems: 'center' },
-  drawTitle: { color: palette.text, fontFamily: fonts.display, fontSize: 120, lineHeight: 122 },
-  taunt: { marginTop: 2, color: palette.muted, fontFamily: fonts.mono, fontSize: 12 },
-  vs: { marginTop: 8, color: palette.muted, fontFamily: fonts.body, fontSize: 15 },
-  resultHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  scoreRow: { marginTop: 8, width: '100%', flexDirection: 'row', gap: 8 },
-  scoreCol: { flex: 1, borderRadius: 14, paddingVertical: 10, alignItems: 'center' },
-  scoreTag: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10 },
-  score: { color: palette.text, fontFamily: fonts.display, fontSize: 23 },
-  good: { marginTop: 6, color: palette.success, fontFamily: fonts.mono, fontSize: 12 },
-  toast: { position: 'absolute', top: 60, left: 18, right: 18, zIndex: 100 },
-  toastGrad: { borderRadius: 16, padding: 14, alignItems: 'center' },
-  toastTitle: { color: '#fff', fontFamily: fonts.mono, fontSize: 10, marginBottom: 4 },
-  toastText: { color: '#fff', fontFamily: fonts.display, fontSize: 16, textAlign: 'center' },
+  fill: { width: '100%', height: '100%' },
+
+  drawScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.bg },
+  drawText: { color: palette.text, fontFamily: fonts.display, fontSize: 110, letterSpacing: 1 },
+
+  metricsRow: { marginTop: 12, width: '100%', flexDirection: 'row', gap: 8 },
+  metric: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panelSoft,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  metricLabel: { color: palette.tertiary, fontFamily: fonts.mono, fontSize: 10 },
+  metricValue: { color: palette.text, fontFamily: fonts.display, fontSize: 21, marginTop: 3 },
+  good: { color: palette.success, fontFamily: fonts.body, fontSize: 13, marginTop: 8 },
+
+  errorBanner: {
+    position: 'absolute',
+    zIndex: 30,
+    top: 58,
+    left: 20,
+    right: 20,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,90,122,0.95)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  errorText: { color: '#fff', fontFamily: fonts.body, fontSize: 13, textAlign: 'center' },
+
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  loadingBox: {
+    backgroundColor: palette.panel,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    padding: 28,
+    alignItems: 'center',
+    gap: 12,
+    ...shadows.medium,
+  },
+  loadingLabel: {
+    color: palette.muted,
+    fontFamily: fonts.body,
+    fontSize: 14,
+  },
 });

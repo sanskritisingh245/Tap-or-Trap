@@ -1,104 +1,90 @@
-// TapRush Design System v5.0 — Stake-inspired Premium Dark
-// Dark charcoal base with clean green/blue accents. Premium casino feel.
+// Premium design tokens: restrained, high-contrast, dark surfaces.
 
 export const palette = {
-  // Surfaces (charcoal elevation steps like Stake.com)
-  bg:        '#0F212E',   // Stake's main background
-  bgAlt:     '#172D3E',   // slightly lighter
-  panel:     '#1A2C38',   // card/panel surfaces
-  panelSoft: '#213743',   // elevated panels
-  panelStroke: 'rgba(255,255,255,0.04)',
+  bg: '#0B1220',
+  bgAlt: '#111B2E',
+  panel: '#162236',
+  panelSoft: '#1B2A42',
+  panelStroke: 'rgba(151, 171, 205, 0.22)',
 
-  // Text
-  text:    '#FFFFFF',
-  muted:   'rgba(255,255,255,0.50)',
-  tertiary: 'rgba(255,255,255,0.25)',
+  text: '#F5F8FF',
+  muted: 'rgba(221, 230, 250, 0.68)',
+  tertiary: 'rgba(221, 230, 250, 0.35)',
 
-  // Accents — Electric Blue CTA
-  primary:       '#3B82F6',  // blue-500
-  primaryStrong: '#2563EB',  // blue-600
-  accent:        '#60A5FA',  // blue-400
-  success:       '#22C55E',  // green-500
-  warning:       '#FFB800',  // amber
-  danger:        '#FF4757',  // red
-  purple:        '#B983FF',
+  primary: '#4F8CFF',
+  primaryStrong: '#2E6EF2',
+  accent: '#53E2D2',
+  success: '#41D28C',
+  warning: '#FFC15D',
+  danger: '#FF5A7A',
+  purple: '#9E7BFF',
 
-  // Fills
-  fillPrimary:   'rgba(59,130,246,0.10)',
-  fillSecondary: 'rgba(59,130,246,0.06)',
-  fillTertiary:  'rgba(59,130,246,0.03)',
+  fillPrimary: 'rgba(79,140,255,0.13)',
+  fillSecondary: 'rgba(79,140,255,0.08)',
+  fillTertiary: 'rgba(79,140,255,0.05)',
 
-  // Button text (on blue bg)
-  buttonText: '#FFFFFF',
+  buttonText: '#F7FAFF',
 };
 
 export const gameColors = {
-  taprush:  '#2EE5F6',  // cyan
+  taprush: '#53E2D2',
 };
 
 export const fonts = {
   display: 'Inter_700Bold',
-  body:    'Inter_500Medium',
-  light:   'Inter_400Regular',
-  mono:    'JetBrainsMono_500Medium',
+  body: 'Inter_500Medium',
+  light: 'Inter_400Regular',
+  mono: 'JetBrainsMono_500Medium',
 };
 
-// Gradient presets
 export const gradients = {
-  // Ambient screen gradients
-  cool:   ['rgba(46,229,246,0.06)', 'rgba(46,229,246,0.02)', 'transparent'],
-  warm:   ['rgba(255,184,0,0.06)', 'rgba(255,184,0,0.02)', 'transparent'],
-  danger: ['rgba(255,71,87,0.06)', 'rgba(255,71,87,0.02)', 'transparent'],
+  cool: ['rgba(79,140,255,0.2)', 'rgba(79,140,255,0.05)', 'transparent'],
+  warm: ['rgba(255,193,93,0.18)', 'rgba(255,193,93,0.04)', 'transparent'],
+  danger: ['rgba(255,90,122,0.2)', 'rgba(255,90,122,0.05)', 'transparent'],
 
-  // Game header gradients
-  taprush:  ['rgba(46,229,246,0.10)', 'rgba(46,229,246,0.03)', 'transparent'],
+  taprush: ['rgba(83,226,210,0.18)', 'rgba(83,226,210,0.04)', 'transparent'],
 
-  // Card accent gradients
-  cardTaprush:  ['#1A2C38', 'rgba(46,229,246,0.08)'],
+  cardTaprush: ['#1B2A42', 'rgba(83,226,210,0.12)'],
 
-  // Button gradients
-  primaryBtn:  ['#3B82F6', '#2563EB'],
-  successBtn:  ['#22C55E', '#16A34A'],
-  warningBtn:  ['#FFB800', '#E5A500'],
-  dangerBtn:   ['#FF4757', '#E5303F'],
-  accentBtn:   ['#2EE5F6', '#1BC5D4'],
-  purpleBtn:   ['#B983FF', '#9B59FF'],
+  primaryBtn: ['#4F8CFF', '#2E6EF2'],
+  successBtn: ['#41D28C', '#21B870'],
+  warningBtn: ['#FFC15D', '#E9A93B'],
+  dangerBtn: ['#FF5A7A', '#E63F60'],
+  accentBtn: ['#53E2D2', '#35C8B8'],
+  purpleBtn: ['#9E7BFF', '#855EFF'],
 
-  // Surface depth
-  panelDepth: ['#1A2C38', '#172D3E', '#0F212E'],
+  panelDepth: ['#1B2A42', '#162236', '#0B1220'],
 };
 
-// Shadow presets (iOS-optimized)
 export const shadows = {
   subtle: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     elevation: 2,
   },
   medium: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.30,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 5,
   },
   strong: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.40,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.36,
+    shadowRadius: 22,
     elevation: 8,
   },
   glow: (color: string) => ({
     shadowColor: color,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 6,
   }),
 };
 
-// No multiplier — sizes are final rendered values
 export const fs = (size: number) => size;

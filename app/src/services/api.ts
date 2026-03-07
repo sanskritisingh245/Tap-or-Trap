@@ -45,7 +45,7 @@ async function apiFetch(endpoint: string, options: RequestInit = {}): Promise<an
   // Auto-reauth if token is missing but we have a saved wallet
   if (!authToken && !isPublic) {
     const ok = await reauth();
-    if (!ok) throw new Error('Not authenticated');
+    if (!ok) throw new Error('Not authenticated — please restart the app');
   }
 
   const headers: Record<string, string> = {
@@ -57,21 +57,34 @@ async function apiFetch(endpoint: string, options: RequestInit = {}): Promise<an
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
-  const res = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (networkErr: any) {
+    throw new Error(`Cannot reach server at ${API_URL}. Make sure the backend is running.`);
+  }
 
   // If 401, try reauth once and retry
   if (res.status === 401 && !isPublic) {
+    // Force clear stale token so reauth does a fresh login
+    authToken = null;
+    g.__snapduel.authToken = null;
     const ok = await reauth();
     if (ok) {
       const retryHeaders = { ...headers, Authorization: `Bearer ${authToken}` };
-      const retryRes = await fetch(`${API_URL}${endpoint}`, { ...options, headers: retryHeaders });
-      const retryData = await retryRes.json();
-      if (!retryRes.ok) throw new Error(retryData.error || `Request failed: ${retryRes.status}`);
-      return retryData;
+      try {
+        const retryRes = await fetch(`${API_URL}${endpoint}`, { ...options, headers: retryHeaders });
+        const retryData = await retryRes.json();
+        if (!retryRes.ok) throw new Error(retryData.error || `Request failed: ${retryRes.status}`);
+        return retryData;
+      } catch (retryErr: any) {
+        throw new Error(`Cannot reach server at ${API_URL}. Make sure the backend is running.`);
+      }
     }
+    throw new Error('Session expired — please restart the app');
   }
 
   const data = await res.json();

@@ -1,8 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { fonts } from '../theme/ui';
+import { fonts, palette, shadows } from '../theme/ui';
 
 interface RoomJoinerProps {
   onJoin: (code: string) => void;
@@ -14,59 +13,37 @@ interface RoomJoinerProps {
 export function RoomJoiner({ onJoin, onCancel, error, loading }: RoomJoinerProps) {
   const [code, setCode] = useState('');
   const ready = code.length === 6;
-  const goBtnScale = useRef(new Animated.Value(1)).current;
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#E8DDCF', '#D8CCC0', '#8A8795', '#23283F']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      />
+      <LinearGradient colors={[palette.bgAlt, palette.bg]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
       <View style={styles.card}>
-        <Ionicons name="enter-outline" size={28} color="#DDBA7C" style={{ marginBottom: 4 }} />
         <Text style={styles.head}>JOIN ROOM</Text>
-        <Text style={styles.label}>Enter the 6-character code from your friend</Text>
         <TextInput
           style={[styles.input, ready && styles.inputReady]}
           value={code}
-          onChangeText={(t) => setCode(t.toUpperCase().slice(0, 6))}
+          onChangeText={(v) => setCode(v.toUpperCase().slice(0, 6))}
           placeholder="A1B2C3"
-          placeholderTextColor="rgba(237,225,207,0.25)"
-          autoCorrect={false}
+          placeholderTextColor={palette.tertiary}
           autoCapitalize="characters"
+          autoCorrect={false}
           maxLength={6}
           autoFocus
-          selectionColor="#62EBFF"
+          selectionColor={palette.primary}
         />
-        {error ? <Text style={styles.err}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Pressable
-          style={{ width: '100%' }}
-          onPress={() => ready && onJoin(code)}
-          disabled={!ready || loading}
-          onPressIn={() => Animated.spring(goBtnScale, { toValue: 0.96, useNativeDriver: true, damping: 15, stiffness: 300 }).start()}
-          onPressOut={() => Animated.spring(goBtnScale, { toValue: 1, useNativeDriver: true, damping: 15, stiffness: 300 }).start()}
-        >
-          <Animated.View style={{ transform: [{ scale: goBtnScale }] }}>
-            {ready ? (
-              <LinearGradient
-                colors={['#2E3762', '#171E40']}
-                style={styles.join}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              >
-                <Text style={styles.joinText}>{loading ? '...' : 'JOIN'}</Text>
-              </LinearGradient>
-            ) : (
-              <View style={[styles.join, styles.joinOff]}>
-                <Text style={[styles.joinText, { opacity: 0.4 }]}>JOIN</Text>
-              </View>
-            )}
-          </Animated.View>
-        </Pressable>
+        <TouchableOpacity style={styles.joinWrap} onPress={() => ready && onJoin(code)} disabled={!ready || loading} activeOpacity={0.88}>
+          <LinearGradient
+            colors={ready ? [palette.primary, palette.primaryStrong] : [palette.panelSoft, palette.panelSoft]}
+            style={styles.join}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          >
+            <Text style={[styles.joinText, !ready && { color: palette.tertiary }]}>{loading ? '...' : 'JOIN'}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
 
-        <TouchableOpacity style={styles.back} onPress={onCancel} activeOpacity={0.86}>
+        <TouchableOpacity style={styles.back} onPress={onCancel} activeOpacity={0.85}>
           <Text style={styles.backText}>BACK</Text>
         </TouchableOpacity>
       </View>
@@ -75,68 +52,43 @@ export function RoomJoiner({ onJoin, onCancel, error, loading }: RoomJoinerProps
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 18 },
+  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: palette.bg },
   card: {
-    borderRadius: 16,
-    backgroundColor: 'rgba(39,42,59,0.9)',
-    padding: 24,
-    alignItems: 'center',
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panel,
+    padding: 20,
+    ...shadows.medium,
   },
-  head: {
-    color: '#EED8B6',
-    fontFamily: fonts.display,
-    fontSize: 22,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  label: {
-    color: 'rgba(237,232,227,0.55)',
-    fontFamily: fonts.body,
-    fontSize: 13,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
+  head: { color: palette.text, fontFamily: fonts.display, fontSize: 24, textAlign: 'center', marginBottom: 12 },
   input: {
-    width: '100%',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.15)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingVertical: 16,
-    textAlign: 'center',
-    color: '#EDE1CF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.bgAlt,
+    color: palette.text,
     fontFamily: fonts.mono,
     fontSize: 34,
     letterSpacing: 8,
+    textAlign: 'center',
+    paddingVertical: 12,
   },
   inputReady: {
-    borderColor: 'rgba(98,235,255,0.5)',
-    backgroundColor: 'rgba(98,235,255,0.06)',
+    borderColor: palette.primary,
   },
-  err: { marginTop: 8, color: '#FF4757', fontFamily: fonts.body, fontSize: 13 },
-  join: {
-    marginTop: 14,
-    width: '100%',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(107,110,207,0.7)',
-  },
-  joinOff: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  joinText: { color: '#EED8B6', fontFamily: fonts.display, fontSize: 26 },
+  error: { marginTop: 8, color: palette.danger, fontFamily: fonts.body, fontSize: 13, textAlign: 'center' },
+  joinWrap: { marginTop: 14, borderRadius: 14, overflow: 'hidden' },
+  join: { paddingVertical: 14, alignItems: 'center' },
+  joinText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 22 },
   back: {
     marginTop: 10,
-    width: '100%',
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: palette.panelStroke,
+    backgroundColor: palette.panelSoft,
+    paddingVertical: 12,
     alignItems: 'center',
   },
-  backText: { color: 'rgba(237,225,207,0.5)', fontFamily: fonts.body, fontSize: 14 },
+  backText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
 });
