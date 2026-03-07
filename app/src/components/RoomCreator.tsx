@@ -37,7 +37,7 @@ export function RoomCreator({ roomCode, onCancel }: RoomCreatorProps) {
           <Text style={styles.code}>{roomCode}</Text>
         </Animated.View>
         <TouchableOpacity style={styles.mainBtnWrap} onPress={onShare} activeOpacity={0.88}>
-          <LinearGradient colors={[palette.primary, palette.primaryStrong]} style={styles.mainBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <LinearGradient colors={['#2A355C', '#132144']} style={styles.mainBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
             <Text style={styles.mainText}>SHARE CODE</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -54,36 +54,36 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panel,
+    borderColor: 'rgba(151, 171, 205, 0.26)',
+    backgroundColor: 'rgba(22, 34, 54, 0.94)',
     padding: 20,
     alignItems: 'center',
     ...shadows.medium,
   },
-  head: { color: palette.text, fontFamily: fonts.display, fontSize: 24, marginBottom: 12 },
+  head: { color: '#F2DFC5', fontFamily: fonts.display, fontSize: 24, marginBottom: 12 },
   codeWrap: {
     width: '100%',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: palette.primary,
-    backgroundColor: palette.fillPrimary,
+    borderColor: 'rgba(220, 194, 151, 0.5)',
+    backgroundColor: 'rgba(231, 210, 175, 0.14)',
     alignItems: 'center',
     paddingVertical: 16,
     marginBottom: 12,
   },
-  code: { color: palette.primary, fontFamily: fonts.mono, fontSize: 44, letterSpacing: 8 },
+  code: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 44, letterSpacing: 6 },
   mainBtnWrap: { width: '100%', borderRadius: 14, overflow: 'hidden' },
-  mainBtn: { paddingVertical: 14, alignItems: 'center' },
-  mainText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 18 },
+  mainBtn: { paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(224,198,159,0.4)' },
+  mainText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 18 },
   cancel: {
     marginTop: 10,
     width: '100%',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft,
+    borderColor: 'rgba(84, 57, 26, 0.28)',
+    backgroundColor: 'rgba(232, 197, 143, 0.9)',
     alignItems: 'center',
     paddingVertical: 12,
   },
-  cancelText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  cancelText: { color: '#4D3520', fontFamily: fonts.display, fontSize: 14 },
 });

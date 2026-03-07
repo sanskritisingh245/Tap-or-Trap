@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Platform, View, Text, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
+import { Platform, View, Text, StyleSheet, StatusBar, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import GameScreen from './src/screens/GameScreen';
@@ -13,7 +13,7 @@ import { palette, fonts } from './src/theme/ui';
 
 export type Screen = 'home' | 'taprush' | 'missions' | 'settings';
 
-const TAB_SCREENS: Screen[] = ['home', 'missions', 'settings'];
+const TAB_SCREENS: Screen[] = ['home', 'missions'];
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -67,6 +67,7 @@ export default function App() {
   }
 
   const showTabBar = wallet.connected && TAB_SCREENS.includes(currentScreen);
+  const showProfileEntry = wallet.connected && currentScreen !== 'settings' && currentScreen !== 'taprush';
 
   return (
     <View style={styles.root}>
@@ -79,6 +80,15 @@ export default function App() {
           <SettingsScreen wallet={wallet} onNavigate={(s) => setCurrentScreen(s as Screen)} />
         )}
       </View>
+      {showProfileEntry && (
+        <TouchableOpacity
+          style={styles.profileEntry}
+          onPress={() => setCurrentScreen('settings')}
+          activeOpacity={0.86}
+        >
+          <Text style={styles.profileEntryText}>P</Text>
+        </TouchableOpacity>
+      )}
       {showTabBar && (
         <BottomTabBar
           activeTab={currentScreen}
@@ -92,6 +102,25 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: palette.bg },
   content: { flex: 1 },
+  profileEntry: {
+    position: 'absolute',
+    top: 56,
+    left: 34,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: 'rgba(205, 167, 109, 0.45)',
+    backgroundColor: 'rgba(232, 197, 143, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  profileEntryText: {
+    color: '#E6CEA8',
+    fontFamily: fonts.display,
+    fontSize: 15,
+  },
   blocked: {
     flex: 1,
     backgroundColor: palette.bg,

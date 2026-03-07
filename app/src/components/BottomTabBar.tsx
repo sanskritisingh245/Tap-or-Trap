@@ -1,13 +1,11 @@
 import React, { useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 import { fonts, palette } from '../theme/ui';
 
 const TABS = [
-  { key: 'home', label: 'Home', icon: 'game-controller' as const },
-  { key: 'missions', label: 'Rewards', icon: 'gift' as const },
-  { key: 'settings', label: 'Profile', icon: 'person' as const },
+  { key: 'home', label: 'Home', glyph: '●' },
+  { key: 'missions', label: 'Rewards', glyph: '◆' },
 ] as const;
 
 interface BottomTabBarProps {
@@ -17,7 +15,6 @@ interface BottomTabBarProps {
 
 function TabItem({ tab, active, onPress }: { tab: typeof TABS[number]; active: boolean; onPress: () => void }) {
   const scale = useRef(new Animated.Value(1)).current;
-  const iconName = active ? tab.icon : `${tab.icon}-outline` as any;
 
   return (
     <Pressable
@@ -27,11 +24,7 @@ function TabItem({ tab, active, onPress }: { tab: typeof TABS[number]; active: b
       onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 15, stiffness: 400 }).start()}
     >
       <Animated.View style={[styles.tabInner, active && styles.tabActive, { transform: [{ scale }] }]}>
-        <Ionicons
-          name={iconName}
-          size={20}
-          color={active ? palette.primary : 'rgba(255,255,255,0.30)'}
-        />
+        <Text style={[styles.glyph, active && styles.glyphActive]}>{tab.glyph}</Text>
         <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
       </Animated.View>
     </Pressable>
@@ -83,6 +76,15 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     backgroundColor: 'rgba(59,130,246,0.06)',
+  },
+  glyph: {
+    color: 'rgba(255,255,255,0.30)',
+    fontFamily: fonts.display,
+    fontSize: 16,
+    lineHeight: 18,
+  },
+  glyphActive: {
+    color: palette.primary,
   },
   label: {
     color: 'rgba(255,255,255,0.30)',

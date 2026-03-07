@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator
 import { LinearGradient } from 'expo-linear-gradient';
 import { getPlayerStats, getOnlinePlayers, claimDailyLogin, PlayerStats, OnlinePlayer } from '../services/api';
 import { deriveUsername } from '../utils/username';
-import { fonts, palette, shadows } from '../theme/ui';
+import { fonts, palette } from '../theme/ui';
 
 interface LobbyMenuProps {
   playsRemaining: number | null;
@@ -20,6 +20,15 @@ interface LobbyMenuProps {
 
 function xpToLevel(xp: number): number {
   return Math.max(1, Math.floor(xp / 10) + 1);
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.statTile}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+    </View>
+  );
 }
 
 export function LobbyMenu({
@@ -41,9 +50,11 @@ export function LobbyMenu({
     onRefreshCredits();
     getPlayerStats().then(setStats).catch(() => {});
     getOnlinePlayers().then(setOnlinePlayers).catch(() => {});
-    claimDailyLogin().then((res) => {
-      if (!res.alreadyClaimed) onRefreshCredits();
-    }).catch(() => {});
+    claimDailyLogin()
+      .then((res) => {
+        if (!res.alreadyClaimed) onRefreshCredits();
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -61,86 +72,87 @@ export function LobbyMenu({
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[palette.bgAlt, palette.bg, palette.bg]}
+        colors={[palette.bgAlt, palette.bg]}
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.topBar}>
-          {onBack ? (
-            <TouchableOpacity style={styles.iconBtn} onPress={onBack} activeOpacity={0.85}>
-              <Text style={styles.iconGlyph}>‹</Text>
-            </TouchableOpacity>
-          ) : <View style={styles.iconPlaceholder} />}
-          <Text style={styles.brand}>TAPRUSH</Text>
-          <TouchableOpacity style={styles.iconBtn} onPress={onTopUp} activeOpacity={0.85}>
-            <Text style={styles.iconGlyph}>+</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.heroCard}>
-          <View>
-            <Text style={styles.user}>{user}</Text>
-            <Text style={styles.wallet}>{walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}</Text>
-          </View>
-          <View style={styles.levelChip}>
-            <Text style={styles.levelText}>Lv {level}</Text>
-          </View>
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statPill}>
-            <Text style={styles.statLabel}>PLAYS</Text>
-            {loadingCredits ? (
-              <ActivityIndicator color={palette.primary} size="small" />
+        <View>
+          <View style={styles.headerRow}>
+            {onBack ? (
+              <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.86}>
+                <Text style={styles.backText}>‹</Text>
+              </TouchableOpacity>
             ) : (
-              <Text style={[styles.statValue, lowCredits && { color: palette.warning }]}>{playsRemaining}</Text>
+              <View style={{ width: 38 }} />
             )}
+            <View style={{ width: 38 }} />
           </View>
-          <View style={styles.statPill}>
-            <Text style={styles.statLabel}>ONLINE</Text>
-            <Text style={styles.statValue}>{onlinePlayers.length}</Text>
+
+          <View style={styles.brandWrap}>
+            <Text style={styles.title}>TapRush</Text>
+            <Text style={styles.subtitle}>DUEL LOBBY</Text>
+            <View style={styles.titleDivider} />
           </View>
-          <View style={styles.statPill}>
-            <Text style={styles.statLabel}>WINRATE</Text>
-            <Text style={styles.statValue}>{stats ? `${stats.winRate}%` : '-'}</Text>
+
+          <View style={styles.balanceCard}>
+            <View>
+              <Text style={styles.balanceLabel}>PLAYS</Text>
+              {loadingCredits ? (
+                <ActivityIndicator color={palette.primary} />
+              ) : (
+                <Text style={[styles.balanceValue, lowCredits && { color: '#F7C883' }]}>{playsRemaining}</Text>
+              )}
+            </View>
+            <View style={styles.balanceRight}>
+              <Text style={styles.balanceMeta}>{onlinePlayers.length} online</Text>
+              <Text style={styles.balanceMeta}>{stats?.xp ?? 0} XP</Text>
+            </View>
+          </View>
+
+          <View style={styles.statsRow}>
+            <StatTile label="Tier" value={stats?.tier || 'BRONZE'} />
+            <StatTile label="Streak" value={`${stats?.currentStreak ?? 0}d`} />
+            <StatTile label="Level" value={`Lv ${level}`} />
           </View>
         </View>
 
-        <TouchableOpacity
-          style={[styles.primaryButton, lowCredits && styles.primaryButtonMuted]}
-          onPress={lowCredits ? onTopUp : onFindRandom}
-          activeOpacity={0.9}
-        >
-          <LinearGradient
-            colors={lowCredits ? [palette.warning, '#D89A33'] : [palette.primary, palette.primaryStrong]}
-            style={styles.primaryGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.primaryText}>{lowCredits ? 'TOP UP PLAYS' : 'FIND MATCH'}</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        <View style={styles.actionsWrap}>
+          <TouchableOpacity style={styles.primaryWrap} onPress={lowCredits ? onTopUp : onFindRandom} activeOpacity={0.9}>
+            <LinearGradient
+              colors={lowCredits ? ['#E8C58F', '#CAA069'] : ['#2A355C', '#132144']}
+              style={styles.primaryBtn}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.primaryMeta}>{lowCredits ? 'REFILL' : 'MATCHMAKING'}</Text>
+              <Text style={styles.primaryText}>{lowCredits ? 'Top Up Plays' : 'Play Now'}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
-        <View style={styles.secondaryGrid}>
-          <TouchableOpacity style={styles.secondaryCard} onPress={onChallengeFreund} activeOpacity={0.85}>
-            <Text style={[styles.secondaryIcon, { color: palette.accent }]}>◉</Text>
-            <Text style={styles.secondaryTitle}>Create Room</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryCard} onPress={onJoinWithCode} activeOpacity={0.85}>
-            <Text style={[styles.secondaryIcon, { color: palette.primary }]}>⌁</Text>
-            <Text style={styles.secondaryTitle}>Join Code</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryCard} onPress={onViewLeaderboard} activeOpacity={0.85}>
-            <Text style={[styles.secondaryIcon, { color: palette.warning }]}>★</Text>
-            <Text style={styles.secondaryTitle}>Leaderboard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryCard} onPress={onViewHistory} activeOpacity={0.85}>
-            <Text style={[styles.secondaryIcon, { color: palette.text }]}>◷</Text>
-            <Text style={styles.secondaryTitle}>History</Text>
-          </TouchableOpacity>
+          <View style={styles.secondaryRow}>
+            <TouchableOpacity style={styles.secondaryCard} onPress={onChallengeFreund} activeOpacity={0.86}>
+              <Text style={styles.secondaryMeta}>PRIVATE</Text>
+              <Text style={styles.secondaryText}>Create Room</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryCard} onPress={onJoinWithCode} activeOpacity={0.86}>
+              <Text style={styles.secondaryMeta}>INVITE</Text>
+              <Text style={styles.secondaryText}>Join Code</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.utilityRow}>
+            <TouchableOpacity style={styles.utilityCard} onPress={onViewLeaderboard} activeOpacity={0.86}>
+              <Text style={styles.utilityMeta}>RANK</Text>
+              <Text style={styles.utilityText}>Leaderboard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.utilityCard} onPress={onViewHistory} activeOpacity={0.86}>
+              <Text style={styles.utilityMeta}>LOG</Text>
+              <Text style={styles.utilityText}>History</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -149,110 +161,119 @@ export function LobbyMenu({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.bg },
-  scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 30 },
+  scroll: { flexGrow: 1, paddingHorizontal: 18, paddingTop: 34, paddingBottom: 24 },
 
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panel,
+    borderColor: 'rgba(151, 171, 205, 0.28)',
+    backgroundColor: 'rgba(25, 38, 58, 0.94)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconPlaceholder: { width: 34, height: 34 },
-  iconGlyph: {
-    color: palette.text,
+  backText: { color: '#DCC5A2', fontFamily: fonts.display, fontSize: 20 },
+  brandWrap: { marginTop: 28, alignItems: 'center' },
+  title: {
+    color: '#F2DFC5',
     fontFamily: fonts.display,
-    fontSize: 18,
-    lineHeight: 18,
+    fontSize: 48,
+    lineHeight: 50,
+    textAlign: 'center',
   },
-  brand: {
-    color: palette.text,
-    fontFamily: fonts.display,
-    fontSize: 22,
-    letterSpacing: 0.8,
+  subtitle: { marginTop: 6, color: palette.muted, fontFamily: fonts.body, fontSize: 14, textAlign: 'center' },
+  titleDivider: {
+    marginTop: 14,
+    width: 120,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: 'rgba(230, 206, 168, 0.35)',
   },
 
-  heroCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panel,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    ...shadows.subtle,
-  },
-  user: { color: palette.text, fontFamily: fonts.display, fontSize: 20 },
-  wallet: { marginTop: 4, color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
-  levelChip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: palette.fillPrimary,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
-  },
-  levelText: { color: palette.primary, fontFamily: fonts.mono, fontSize: 11 },
-
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  statPill: {
-    flex: 1,
+  balanceCard: {
+    marginTop: 40,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft,
+    borderColor: 'rgba(220, 194, 151, 0.4)',
+    backgroundColor: 'rgba(231, 210, 175, 0.18)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  balanceRight: { alignItems: 'flex-end', gap: 4 },
+  balanceLabel: { color: '#E6CEA8', fontFamily: fonts.mono, fontSize: 10 },
+  balanceValue: { marginTop: 3, color: '#F7EAD7', fontFamily: fonts.display, fontSize: 28, lineHeight: 30 },
+  balanceMeta: { color: '#E6CEA8', fontFamily: fonts.body, fontSize: 14 },
+
+  statsRow: { marginTop: 14, flexDirection: 'row', gap: 8 },
+  statTile: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(151, 171, 205, 0.28)',
+    backgroundColor: 'rgba(28, 44, 68, 0.92)',
     paddingVertical: 10,
     alignItems: 'center',
   },
-  statLabel: { color: palette.tertiary, fontFamily: fonts.mono, fontSize: 10, marginBottom: 3 },
-  statValue: { color: palette.text, fontFamily: fonts.display, fontSize: 19 },
+  statLabel: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10 },
+  statValue: { marginTop: 4, color: palette.text, fontFamily: fonts.display, fontSize: 16 },
 
-  primaryButton: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    marginBottom: 12,
-    ...shadows.medium,
-  },
-  primaryButtonMuted: {
-    ...shadows.subtle,
-  },
-  primaryGradient: {
-    paddingVertical: 18,
+  actionsWrap: { marginTop: 'auto', paddingTop: 28, marginBottom: 34, gap: 10 },
+  primaryWrap: { borderRadius: 16, overflow: 'hidden' },
+  primaryBtn: {
+    paddingVertical: 12,
     alignItems: 'center',
-  },
-  primaryText: {
-    color: palette.buttonText,
-    fontFamily: fonts.display,
-    fontSize: 24,
-    letterSpacing: 0.8,
-  },
-
-  secondaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  secondaryCard: {
-    width: '48.8%',
-    borderRadius: 14,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panel,
-    paddingVertical: 14,
+    borderColor: 'rgba(224,198,159,0.45)',
+  },
+  primaryMeta: {
+    color: 'rgba(243, 226, 200, 0.7)',
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.1,
+    marginBottom: 2,
+  },
+  primaryText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 24, lineHeight: 26 },
+
+  secondaryRow: { flexDirection: 'row', gap: 8 },
+  secondaryCard: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(151, 171, 205, 0.28)',
+    backgroundColor: 'rgba(25, 38, 58, 0.92)',
+    paddingVertical: 12,
     alignItems: 'center',
-    gap: 6,
   },
-  secondaryIcon: {
-    fontFamily: fonts.display,
-    fontSize: 14,
-    lineHeight: 14,
+  secondaryMeta: {
+    color: 'rgba(220,197,162,0.62)',
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.1,
+    marginBottom: 3,
   },
-  secondaryTitle: { color: palette.text, fontFamily: fonts.body, fontSize: 13 },
+  secondaryText: { color: '#DCC5A2', fontFamily: fonts.body, fontSize: 12 },
+
+  utilityRow: { flexDirection: 'row', gap: 8 },
+  utilityCard: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(151, 171, 205, 0.28)',
+    backgroundColor: 'rgba(25, 38, 58, 0.92)',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  utilityMeta: {
+    color: 'rgba(220,197,162,0.62)',
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.1,
+    marginBottom: 3,
+  },
+  utilityText: { color: '#DCC5A2', fontFamily: fonts.body, fontSize: 12 },
 });
