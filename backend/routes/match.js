@@ -74,13 +74,17 @@ router.get('/:id/state', (req, res) => {
         UPDATE matches SET state = 'STANDOFF', draw_time_ms = ?, draw_secret = ?, draw_commitment = ?
         WHERE id = ? AND state = 'WAITING'
       `).run(drawTimeMs, secret, commitment, matchId);
+      const opponent = match.player_one === wallet ? match.player_two : match.player_one;
       return res.json({
         phase: 'standoff',
+        opponent,
+        isBot: isBot(opponent),
         serverTime: now,
       });
     }
 
-    case 'STANDOFF':
+    case 'STANDOFF': {
+      const oppStandoff = match.player_one === wallet ? match.player_two : match.player_one;
       // Check if it's time to fire the draw
       if (match.draw_time_ms && now >= match.draw_time_ms) {
         const fireResult = db.prepare(
@@ -91,14 +95,19 @@ router.get('/:id/state', (req, res) => {
           return res.json({
             phase: 'draw',
             drawFiredAt: now,
+            opponent: oppStandoff,
+            isBot: isBot(oppStandoff),
             serverTime: now,
           });
         }
       }
       return res.json({
         phase: 'standoff',
+        opponent: oppStandoff,
+        isBot: isBot(oppStandoff),
         serverTime: now,
       });
+    }
 
     case 'DRAW_FIRED': {
       // Trigger bot tap if applicable
@@ -115,14 +124,18 @@ router.get('/:id/state', (req, res) => {
         const ra = db.prepare('SELECT achievement_id FROM achievements WHERE wallet = ? AND unlocked_at > ? ORDER BY unlocked_at DESC').all(wallet, Date.now() - 10000);
         return res.json({
           phase: 'result', winner: updated.winner, won: isW, reaction: myR, opponentReaction: opR, opponent: opp,
+          isBot: isBot(opp),
           forfeitReason: updated.forfeit_reason, currentStreak: ps?.current_streak || 0, maxStreak: ps?.max_streak || 0,
           bestReaction: ps?.best_reaction_ms, wins: ps?.wins || 0, losses: ps?.losses || 0, xp: ps?.xp || 0,
           tier: ps?.tier || 'BRONZE', newAchievements: ra.map(a => a.achievement_id), serverTime: now,
         });
       }
+      const oppDraw = match.player_one === wallet ? match.player_two : match.player_one;
       return res.json({
         phase: 'draw',
         drawFiredAt: match.draw_fired_at,
+        opponent: oppDraw,
+        isBot: isBot(oppDraw),
         serverTime: now,
       });
     }
@@ -152,6 +165,7 @@ router.get('/:id/state', (req, res) => {
         reaction: myReaction,
         opponentReaction,
         opponent,
+        isBot: isBot(opponent),
         forfeitReason: match.forfeit_reason,
         currentStreak: playerStats?.current_streak || 0,
         maxStreak: playerStats?.max_streak || 0,

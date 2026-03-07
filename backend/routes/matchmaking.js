@@ -1,6 +1,6 @@
 const express = require('express');
 const { createRoom, joinRoom, cancelRoom, getRoomStatus } = require('../services/room-manager');
-const { pairFromRoom } = require('../services/matchmaker');
+const { pairFromRoom, generateBotWallet, ensureBotPlayer, createMatch, deductForMatch, isBot } = require('../services/matchmaker');
 
 const router = express.Router();
 
@@ -48,6 +48,7 @@ router.get('/status', (req, res) => {
       status: 'matched',
       matchId: match.id,
       opponent,
+      isBot: isBot(opponent),
       commitment: match.draw_commitment,
     });
   }
@@ -68,9 +69,10 @@ router.get('/status', (req, res) => {
   }
 
   // Check if still in queue
-  const inQueue = db.prepare('SELECT wallet FROM queue WHERE wallet = ?').get(wallet);
+  const inQueue = db.prepare('SELECT wallet, joined_at FROM queue WHERE wallet = ?').get(wallet);
   if (inQueue) {
-    return res.json({ status: 'queued' });
+    const waitTimeMs = Date.now() - inQueue.joined_at;
+    return res.json({ status: 'queued', waitTimeMs });
   }
 
   res.json({ status: 'idle' });
@@ -81,6 +83,34 @@ router.post('/leave', (req, res) => {
   const db = req.app.locals.db;
   db.prepare('DELETE FROM queue WHERE wallet = ?').run(req.wallet);
   res.json({ status: 'left' });
+});
+
+// ─── Play vs Bot ──────────────────────────────────────────────────
+
+// POST /matchmaking/join-bot — instantly pairs player with a bot
+router.post('/join-bot', (req, res) => {
+  const db = req.app.locals.db;
+  const wallet = req.wallet;
+
+  // Check if already in an active match
+  const activeMatch = db.prepare(
+    "SELECT id FROM matches WHERE (player_one = ? OR player_two = ?) AND state NOT IN ('RESOLVED', 'SETTLED', 'CANCELLED')"
+  ).get(wallet, wallet);
+  if (activeMatch) {
+    return res.json({ status: 'matched', matchId: activeMatch.id });
+  }
+
+  // Remove from random queue if present
+  db.prepare('DELETE FROM queue WHERE wallet = ?').run(wallet);
+
+  const botWallet = generateBotWallet();
+  ensureBotPlayer(db, botWallet);
+
+  const match = createMatch(db, wallet, botWallet);
+  deductForMatch(db, wallet, botWallet, match);
+
+  console.log(`[BOT] Player ${wallet.slice(0, 8)}... chose to play vs bot ${botWallet.slice(0, 12)}...`);
+  res.json({ status: 'matched', matchId: match.id, opponent: botWallet, isBot: true });
 });
 
 // ─── Friend Challenge (Invite Code) ────────────────────────────────

@@ -5,7 +5,6 @@ const { deductCredits } = require('../solana/program');
 
 // Bot wallet prefix — any wallet starting with this is a bot
 const BOT_WALLET_PREFIX = 'BOT_';
-const BOT_MATCH_DELAY_MS = 5000; // Wait 5s before spawning a bot
 
 /**
  * Checks if a wallet belongs to a bot.
@@ -82,23 +81,7 @@ function pairFromQueue(db) {
     return match;
   }
 
-  // Only one player in queue — check if they've waited long enough for a bot
-  if (players.length === 1) {
-    const player = players[0];
-    const waitTime = Date.now() - player.joined_at;
-
-    if (waitTime >= BOT_MATCH_DELAY_MS) {
-      const botWallet = generateBotWallet();
-      ensureBotPlayer(db, botWallet);
-
-      db.prepare('DELETE FROM queue WHERE wallet = ?').run(player.wallet);
-      const match = createMatch(db, player.wallet, botWallet);
-      deductForMatch(db, player.wallet, botWallet, match);
-      console.log(`[BOT] Paired ${player.wallet.slice(0, 8)}... with bot ${botWallet.slice(0, 12)}... (waited ${waitTime}ms)`);
-      return match;
-    }
-  }
-
+  // Only one player — keep waiting for a real opponent (no auto-bot)
   return null;
 }
 
@@ -169,4 +152,4 @@ function stopMatchmaker() {
   }
 }
 
-module.exports = { createMatch, pairFromQueue, pairFromRoom, startMatchmaker, stopMatchmaker, isBot, BOT_WALLET_PREFIX };
+module.exports = { createMatch, pairFromQueue, pairFromRoom, startMatchmaker, stopMatchmaker, isBot, BOT_WALLET_PREFIX, generateBotWallet, ensureBotPlayer, deductForMatch };
