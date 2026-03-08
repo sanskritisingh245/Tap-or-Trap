@@ -10,6 +10,7 @@ let savedWallet: string | null = g.__snapduel.savedWallet;
 export function setAuthToken(token: string) {
   authToken = token;
   g.__snapduel.authToken = token;
+  console.log('[API] authToken set:', token.slice(0, 20) + '...');
 }
 
 export function getAuthToken(): string | null {
@@ -17,13 +18,21 @@ export function getAuthToken(): string | null {
 }
 
 async function reauth(): Promise<boolean> {
+  console.log('[API] reauth() called, savedWallet:', savedWallet?.slice(0, 8), 'authToken:', !!authToken);
   // Restore from global in case module vars were reset by hot reload
   if (!savedWallet) savedWallet = g.__snapduel.savedWallet;
   if (!authToken) authToken = g.__snapduel.authToken;
-  if (authToken) return true; // already have a token after restoring from global
+  if (authToken) {
+    console.log('[API] reauth: restored authToken from global');
+    return true;
+  }
 
-  if (!savedWallet) return false;
+  if (!savedWallet) {
+    console.log('[API] reauth: no savedWallet, cannot reauth');
+    return false;
+  }
   try {
+    console.log('[API] reauth: attempting dev-login for', savedWallet.slice(0, 8));
     const res = await fetch(`${API_URL}/auth/dev-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -33,19 +42,30 @@ async function reauth(): Promise<boolean> {
     if (data.token) {
       authToken = data.token;
       g.__snapduel.authToken = data.token;
+      console.log('[API] reauth: success');
       return true;
     }
-  } catch {}
+    console.log('[API] reauth: no token in response');
+  } catch (err: any) {
+    console.error('[API] reauth: failed:', err?.message);
+  }
   return false;
 }
 
 async function apiFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
+  const method = (options.method || 'GET').toUpperCase();
+  console.log(`[API] ${method} ${endpoint}`);
+
   const isPublic = endpoint.startsWith('/auth/');
 
   // Auto-reauth if token is missing but we have a saved wallet
   if (!authToken && !isPublic) {
+    console.log('[API] No authToken for protected route, attempting reauth...');
     const ok = await reauth();
-    if (!ok) throw new Error('Not authenticated — please restart the app');
+    if (!ok) {
+      console.error('[API] Reauth failed, throwing not authenticated');
+      throw new Error('Not authenticated — please restart the app');
+    }
   }
 
   const headers: Record<string, string> = {
@@ -57,53 +77,84 @@ async function apiFetch(endpoint: string, options: RequestInit = {}): Promise<an
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
+  console.log(`[API] Fetching: ${API_URL}${endpoint}`);
+  console.log(`[API] Has auth token: ${!!authToken}`);
+  if (options.body) {
+    console.log(`[API] Request body: ${(options.body as string).slice(0, 200)}`);
+  }
+
   let res: Response;
+  const fetchStart = Date.now();
   try {
     res = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers,
     });
   } catch (networkErr: any) {
+    console.error(`[API] NETWORK ERROR in ${Date.now() - fetchStart}ms:`, networkErr?.message);
     throw new Error(`Cannot reach server at ${API_URL}. Make sure the backend is running.`);
   }
 
+  console.log(`[API] Response: ${res.status} ${res.statusText} in ${Date.now() - fetchStart}ms`);
+
   // If 401, try reauth once and retry
   if (res.status === 401 && !isPublic) {
-    // Force clear stale token so reauth does a fresh login
+    console.log('[API] Got 401, attempting reauth and retry...');
     authToken = null;
     g.__snapduel.authToken = null;
     const ok = await reauth();
     if (ok) {
+      console.log('[API] Reauth succeeded, retrying request...');
       const retryHeaders = { ...headers, Authorization: `Bearer ${authToken}` };
       try {
         const retryRes = await fetch(`${API_URL}${endpoint}`, { ...options, headers: retryHeaders });
+        console.log(`[API] Retry response: ${retryRes.status}`);
         const retryData = await retryRes.json();
-        if (!retryRes.ok) throw new Error(retryData.error || `Request failed: ${retryRes.status}`);
+        if (!retryRes.ok) {
+          console.error('[API] Retry failed:', retryData.error);
+          throw new Error(retryData.error || `Request failed: ${retryRes.status}`);
+        }
+        console.log('[API] Retry succeeded');
         return retryData;
       } catch (retryErr: any) {
+        console.error('[API] Retry network error:', retryErr?.message);
         throw new Error(`Cannot reach server at ${API_URL}. Make sure the backend is running.`);
       }
     }
+    console.error('[API] Reauth failed after 401');
     throw new Error('Session expired — please restart the app');
   }
 
-  const data = await res.json();
+  let data: any;
+  try {
+    const rawText = await res.text();
+    console.log(`[API] Raw response body: ${rawText.slice(0, 500)}`);
+    data = JSON.parse(rawText);
+  } catch (parseErr: any) {
+    console.error('[API] Failed to parse response as JSON:', parseErr?.message);
+    throw new Error(`Server returned invalid JSON (status ${res.status})`);
+  }
 
   if (!res.ok) {
+    console.error(`[API] ERROR ${res.status}:`, data.error || JSON.stringify(data));
     throw new Error(data.error || `Request failed: ${res.status}`);
   }
 
+  console.log(`[API] SUCCESS:`, JSON.stringify(data).slice(0, 200));
   return data;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────
 
 export async function requestNonce(wallet: string): Promise<string> {
+  console.log('[API] requestNonce for wallet:', wallet.slice(0, 8));
   const data = await apiFetch(`/auth/nonce?wallet=${wallet}`);
+  console.log('[API] requestNonce result:', data.nonce?.slice(0, 20));
   return data.nonce;
 }
 
 export async function verifySignature(wallet: string, signature: string, nonce: string): Promise<string> {
+  console.log('[API] verifySignature for wallet:', wallet.slice(0, 8));
   const data = await apiFetch('/auth/verify', {
     method: 'POST',
     body: JSON.stringify({ wallet, signature, nonce }),
@@ -133,6 +184,16 @@ export async function getCreditsBalance(): Promise<number> {
 
 export async function topUpCredits(): Promise<number> {
   const data = await apiFetch('/credits/topup', { method: 'POST' });
+  return data.playsRemaining;
+}
+
+export async function confirmTopUp(signature: string): Promise<number> {
+  console.log('[API] confirmTopUp called with signature:', signature.slice(0, 20) + '...');
+  const data = await apiFetch('/credits/confirm-topup', {
+    method: 'POST',
+    body: JSON.stringify({ signature }),
+  });
+  console.log('[API] confirmTopUp response:', JSON.stringify(data));
   return data.playsRemaining;
 }
 

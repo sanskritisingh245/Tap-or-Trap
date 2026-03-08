@@ -121,6 +121,13 @@ CREATE TABLE IF NOT EXISTS crash_players (
     PRIMARY KEY (round_id, wallet)
 );
 
+CREATE TABLE IF NOT EXISTS used_topup_signatures (
+    signature TEXT PRIMARY KEY,
+    wallet TEXT NOT NULL,
+    credits_granted INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS rooms (
     code TEXT PRIMARY KEY,           -- 6-char alphanumeric invite code
     creator_wallet TEXT NOT NULL,    -- player who created the room

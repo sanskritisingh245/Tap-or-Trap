@@ -140,6 +140,7 @@ function updatePlayerStats(db, winnerWallet, loserWallet, match) {
   db.prepare(`
     UPDATE players SET
       wins = wins + 1,
+      winnings = winnings + 1,
       total_matches = total_matches + 1,
       current_streak = ?,
       max_streak = ?,

@@ -7,10 +7,11 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { getCreditsBalance, topUpCredits, getPlayerStats, claimDailyLogin } from '../services/api';
+import { getCreditsBalance, getPlayerStats, claimDailyLogin } from '../services/api';
 import { fonts, palette, shadows } from '../theme/ui';
 import type { Screen } from '../../App';
 
@@ -20,7 +21,9 @@ interface Props {
     publicKey: string | null;
     connected: boolean;
     loading: boolean;
+    depositing?: boolean;
     connect: () => Promise<void>;
+    deposit?: () => Promise<string>;
   };
 }
 
@@ -111,14 +114,24 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
             <TouchableOpacity
               style={styles.topChip}
               onPress={async () => {
+                console.log('[HOME] Top Up chip pressed');
                 try {
-                  const b = await topUpCredits();
+                  if (!wallet.deposit) { console.log('[HOME] No deposit function'); return; }
+                  console.log('[HOME] Calling wallet.deposit()...');
+                  await wallet.deposit();
+                  console.log('[HOME] deposit() returned, refreshing balance...');
+                  const b = await getCreditsBalance();
+                  console.log('[HOME] New balance:', b);
                   setCredits(b);
-                } catch {}
+                } catch (e: any) {
+                  console.error('[HOME] Top Up FAILED:', e?.message, e?.stack);
+                  Alert.alert('Top Up Failed', e?.message || 'Could not top up credits');
+                }
               }}
+              disabled={wallet.depositing}
               activeOpacity={0.86}
             >
-              <Text style={styles.topChipText}>Top Up +</Text>
+              <Text style={styles.topChipText}>{wallet.depositing ? 'Processing...' : 'Top Up +'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -176,15 +189,25 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
               <TouchableOpacity
                 style={styles.utilityCard}
                 onPress={async () => {
+                  console.log('[HOME] BOOST Top Up pressed');
                   try {
-                    const b = await topUpCredits();
+                    if (!wallet.deposit) { console.log('[HOME] No deposit function'); return; }
+                    console.log('[HOME] Calling wallet.deposit()...');
+                    await wallet.deposit();
+                    console.log('[HOME] deposit() returned, refreshing balance...');
+                    const b = await getCreditsBalance();
+                    console.log('[HOME] New balance:', b);
                     setCredits(b);
-                  } catch {}
+                  } catch (e: any) {
+                    console.error('[HOME] BOOST Top Up FAILED:', e?.message, e?.stack);
+                    Alert.alert('Top Up Failed', e?.message || 'Could not top up credits');
+                  }
                 }}
+                disabled={wallet.depositing}
                 activeOpacity={0.86}
               >
                 <Text style={styles.utilityMeta}>BOOST</Text>
-                <Text style={styles.utilityLabel}>Top Up</Text>
+                <Text style={styles.utilityLabel}>{wallet.depositing ? 'Wait...' : 'Top Up'}</Text>
               </TouchableOpacity>
             </View>
           </View>

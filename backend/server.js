@@ -47,6 +47,7 @@ const migrations = [
   'ALTER TABLE matches ADD COLUMN series_id TEXT',
   'ALTER TABLE matches ADD COLUMN round_number INTEGER DEFAULT 1',
   "ALTER TABLE queue ADD COLUMN mode TEXT NOT NULL DEFAULT 'single'",
+  'ALTER TABLE players ADD COLUMN winnings INTEGER NOT NULL DEFAULT 0',
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch (_) { /* column already exists */ }
