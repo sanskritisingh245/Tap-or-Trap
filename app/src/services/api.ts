@@ -150,6 +150,12 @@ export async function leaveQueue(): Promise<any> {
   return apiFetch('/matchmaking/leave', { method: 'POST' });
 }
 
+// ─── Bot Match ───────────────────────────────────────────────────
+
+export async function joinBot(): Promise<{ status: string; matchId: string; opponent: string }> {
+  return apiFetch('/matchmaking/join-bot', { method: 'POST' });
+}
+
 // ─── Friend Challenge (Invite Code) ──────────────────────────────
 
 export async function createRoom(): Promise<{ roomCode: string; status: string }> {

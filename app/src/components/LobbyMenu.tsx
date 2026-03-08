@@ -8,6 +8,7 @@ import { fonts, palette } from '../theme/ui';
 interface LobbyMenuProps {
   playsRemaining: number | null;
   onFindRandom: () => void;
+  onPlayBot: () => void;
   onChallengeFreund: () => void;
   onJoinWithCode: () => void;
   onTopUp: () => void;
@@ -34,6 +35,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
 export function LobbyMenu({
   playsRemaining,
   onFindRandom,
+  onPlayBot,
   onChallengeFreund,
   onJoinWithCode,
   onTopUp,
@@ -130,6 +132,13 @@ export function LobbyMenu({
               <Text style={styles.primaryMeta}>{lowCredits ? 'REFILL' : 'MATCHMAKING'}</Text>
               <Text style={styles.primaryText}>{lowCredits ? 'Top Up Plays' : 'Play Now'}</Text>
             </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.botWrap} onPress={lowCredits ? onTopUp : onPlayBot} activeOpacity={0.9}>
+            <View style={styles.botBtn}>
+              <Text style={styles.botMeta}>PRACTICE</Text>
+              <Text style={styles.botText}>Play vs Bot</Text>
+            </View>
           </TouchableOpacity>
 
           <View style={styles.secondaryRow}>
@@ -238,6 +247,24 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   primaryText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 24, lineHeight: 26 },
+
+  botWrap: { borderRadius: 14, overflow: 'hidden' },
+  botBtn: {
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(83, 226, 210, 0.35)',
+    backgroundColor: 'rgba(83, 226, 210, 0.1)',
+  },
+  botMeta: {
+    color: 'rgba(83, 226, 210, 0.7)',
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.1,
+    marginBottom: 2,
+  },
+  botText: { color: '#53E2D2', fontFamily: fonts.display, fontSize: 18, lineHeight: 20 },
 
   secondaryRow: { flexDirection: 'row', gap: 8 },
   secondaryCard: {

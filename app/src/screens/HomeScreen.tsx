@@ -66,10 +66,12 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
       <View style={styles.connectScreen}>
         <LinearGradient colors={[palette.bgAlt, palette.bg]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
         <View style={styles.connectCard}>
+          <Text style={styles.connectKicker}>PREMIUM DUEL</Text>
           <Text style={styles.connectTitle}>TapRush</Text>
           <Text style={styles.connectSub}>Competitive reaction duels</Text>
+          <View style={styles.connectDivider} />
           <TouchableOpacity
-            style={styles.primaryWrap}
+            style={[styles.primaryWrap, styles.connectPrimaryWrap]}
             onPress={async () => {
               try {
                 await wallet.connect();
@@ -78,13 +80,13 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
             disabled={wallet.loading}
             activeOpacity={0.88}
           >
-            <LinearGradient colors={[palette.primary, palette.primaryStrong]} style={styles.primaryBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+            <LinearGradient colors={['#2A355C', '#132144']} style={[styles.primaryBtn, styles.connectPrimaryBtn]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
               {wallet.loading ? (
                 <ActivityIndicator color={palette.buttonText} />
               ) : (
                 <View style={styles.primaryInner}>
                   <Text style={styles.primaryMeta}>GET STARTED</Text>
-                  <Text style={styles.primaryBtnText}>Connect Wallet</Text>
+                  <Text style={[styles.primaryBtnText, styles.connectPrimaryBtnText]}>Connect Wallet</Text>
                 </View>
               )}
             </LinearGradient>
@@ -198,16 +200,38 @@ const styles = StyleSheet.create({
 
   connectScreen: { flex: 1, justifyContent: 'center', paddingHorizontal: 20 },
   connectCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panel,
-    padding: 22,
+    borderRadius: 26,
+    borderWidth: 1.2,
+    borderColor: 'rgba(228, 203, 164, 0.32)',
+    backgroundColor: 'rgba(18, 30, 49, 0.92)',
+    paddingVertical: 26,
+    paddingHorizontal: 22,
     alignItems: 'center',
-    ...shadows.medium,
+    shadowColor: '#050b1c',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.42,
+    shadowRadius: 24,
+    elevation: 10,
   },
-  connectTitle: { color: palette.text, fontFamily: fonts.display, fontSize: 40, lineHeight: 42 },
-  connectSub: { marginTop: 6, color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  connectKicker: { color: 'rgba(220,197,162,0.7)', fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.3 },
+  connectTitle: {
+    marginTop: 5,
+    color: '#F2DFC5',
+    fontFamily: fonts.display,
+    fontSize: 44,
+    lineHeight: 46,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 8,
+  },
+  connectSub: { marginTop: 6, color: 'rgba(220,197,162,0.76)', fontFamily: fonts.body, fontSize: 14 },
+  connectDivider: {
+    marginTop: 12,
+    width: 112,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: 'rgba(232, 197, 143, 0.35)',
+  },
 
   panel: {
     flex: 1,
@@ -284,21 +308,42 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 6,
   },
+  connectPrimaryWrap: {
+    marginTop: 24,
+    width: '100%',
+    alignSelf: 'stretch',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(248, 234, 206, 0.18)',
+    shadowColor: '#0F1735',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.34,
+    shadowRadius: 18,
+    elevation: 8,
+  },
   primaryBtn: {
     paddingVertical: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
+    borderColor: 'rgba(224,198,159,0.4)',
+  },
+  connectPrimaryBtn: {
+    paddingVertical: 15,
+    minWidth: '100%',
+    borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: 'rgba(240, 219, 186, 0.48)',
   },
   primaryInner: { alignItems: 'center' },
   primaryMeta: {
-    color: 'rgba(243, 226, 200, 0.7)',
+    color: 'rgba(243, 226, 200, 0.72)',
     fontFamily: fonts.mono,
     fontSize: 10,
     letterSpacing: 1.1,
     marginBottom: 3,
   },
   primaryBtnText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 24, lineHeight: 26 },
+  connectPrimaryBtnText: { fontSize: 32, lineHeight: 34 },
 
   secondaryWrap: { marginTop: 12, borderRadius: 14, overflow: 'hidden' },
   secondaryBtn: {

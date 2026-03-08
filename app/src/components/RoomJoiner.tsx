@@ -35,7 +35,7 @@ export function RoomJoiner({ onJoin, onCancel, error, loading }: RoomJoinerProps
 
         <TouchableOpacity style={styles.joinWrap} onPress={() => ready && onJoin(code)} disabled={!ready || loading} activeOpacity={0.88}>
           <LinearGradient
-            colors={ready ? [palette.primary, palette.primaryStrong] : [palette.panelSoft, palette.panelSoft]}
+            colors={ready ? ['#2A355C', '#132144'] : ['rgba(27, 42, 66, 0.95)', 'rgba(27, 42, 66, 0.95)']}
             style={styles.join}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           >
@@ -56,39 +56,39 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panel,
+    borderColor: 'rgba(151, 171, 205, 0.26)',
+    backgroundColor: 'rgba(22, 34, 54, 0.94)',
     padding: 20,
     ...shadows.medium,
   },
-  head: { color: palette.text, fontFamily: fonts.display, fontSize: 24, textAlign: 'center', marginBottom: 12 },
+  head: { color: '#F2DFC5', fontFamily: fonts.display, fontSize: 24, textAlign: 'center', marginBottom: 12 },
   input: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.bgAlt,
-    color: palette.text,
-    fontFamily: fonts.mono,
+    borderColor: 'rgba(220, 194, 151, 0.4)',
+    backgroundColor: 'rgba(231, 210, 175, 0.14)',
+    color: '#F3E2C8',
+    fontFamily: fonts.display,
     fontSize: 34,
-    letterSpacing: 8,
+    letterSpacing: 6,
     textAlign: 'center',
     paddingVertical: 12,
   },
   inputReady: {
-    borderColor: palette.primary,
+    borderColor: 'rgba(224,198,159,0.65)',
   },
-  error: { marginTop: 8, color: palette.danger, fontFamily: fonts.body, fontSize: 13, textAlign: 'center' },
+  error: { marginTop: 8, color: '#F38FA4', fontFamily: fonts.body, fontSize: 13, textAlign: 'center' },
   joinWrap: { marginTop: 14, borderRadius: 14, overflow: 'hidden' },
-  join: { paddingVertical: 14, alignItems: 'center' },
-  joinText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 22 },
+  join: { paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(224,198,159,0.4)' },
+  joinText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 22 },
   back: {
     marginTop: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft,
+    borderColor: 'rgba(84, 57, 26, 0.28)',
+    backgroundColor: 'rgba(232, 197, 143, 0.9)',
     paddingVertical: 12,
     alignItems: 'center',
   },
-  backText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  backText: { color: '#4D3520', fontFamily: fonts.display, fontSize: 14 },
 });

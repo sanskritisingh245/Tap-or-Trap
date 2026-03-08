@@ -50,6 +50,7 @@ router.get('/status', (req, res) => {
       opponent,
       isBot: isBot(opponent),
       commitment: match.draw_commitment,
+      isBot: isBot(opponent),
     });
   }
 
@@ -76,6 +77,32 @@ router.get('/status', (req, res) => {
   }
 
   res.json({ status: 'idle' });
+});
+
+// POST /matchmaking/join-bot — instantly match against a bot
+router.post('/join-bot', (req, res) => {
+  const db = req.app.locals.db;
+  const wallet = req.wallet;
+
+  // Remove from queue if present
+  db.prepare('DELETE FROM queue WHERE wallet = ?').run(wallet);
+
+  // Check if already in an active match
+  const activeMatch = db.prepare(
+    "SELECT id FROM matches WHERE (player_one = ? OR player_two = ?) AND state NOT IN ('RESOLVED', 'SETTLED', 'CANCELLED')"
+  ).get(wallet, wallet);
+  if (activeMatch) {
+    return res.json({ status: 'matched', matchId: activeMatch.id });
+  }
+
+  const botWallet = generateBotWallet();
+  ensureBotPlayer(db, botWallet);
+
+  const match = createMatch(db, wallet, botWallet);
+  deductForMatch(db, wallet, botWallet, match);
+
+  console.log(`[BOT] ${wallet.slice(0, 8)}... requested bot match → ${botWallet.slice(0, 12)}...`);
+  res.json({ status: 'matched', matchId: match.id, opponent: botWallet });
 });
 
 // POST /matchmaking/leave — removes player from queue

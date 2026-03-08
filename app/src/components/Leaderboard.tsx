@@ -10,9 +10,9 @@ import { deriveUsername } from '../utils/username';
 type Timeframe = 'today' | 'week' | 'all';
 
 const TOP_COLORS: Record<number, [string, string]> = {
-  1: ['rgba(255,184,0,0.12)', 'rgba(255,184,0,0.03)'],
-  2: ['rgba(168,176,181,0.10)', 'rgba(168,176,181,0.03)'],
-  3: ['rgba(205,127,50,0.10)', 'rgba(205,127,50,0.03)'],
+  1: ['rgba(232,197,143,0.16)', 'rgba(232,197,143,0.05)'],
+  2: ['rgba(151,171,205,0.14)', 'rgba(151,171,205,0.04)'],
+  3: ['rgba(202,160,105,0.14)', 'rgba(202,160,105,0.04)'],
 };
 
 interface LeaderboardProps {
@@ -54,7 +54,7 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
         {(['today', 'week', 'all'] as Timeframe[]).map(t => (
           <Pressable key={t} style={[styles.tab, tab === t && styles.tabActiveWrap]} onPress={() => setTab(t)}>
             {tab === t ? (
-              <LinearGradient colors={['#3B82F6', '#2563EB']} style={styles.tabGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <LinearGradient colors={['#2A355C', '#132144']} style={styles.tabGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 <Text style={styles.tabTextActive}>
                   {t === 'today' ? 'TODAY' : t === 'week' ? 'THIS WEEK' : 'ALL TIME'}
                 </Text>
@@ -72,7 +72,7 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
 
       {myRank && (
         <LinearGradient
-          colors={['rgba(59,130,246,0.12)', 'rgba(59,130,246,0.04)']}
+          colors={['rgba(231,210,175,0.18)', 'rgba(231,210,175,0.06)']}
           style={styles.myRank}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
         >
@@ -131,33 +131,37 @@ const styles = StyleSheet.create({
     paddingTop: 54, paddingHorizontal: 18, paddingBottom: 10,
     flexDirection: 'row', alignItems: 'center', gap: 12,
   },
-  back: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: 13 },
-  title: { color: palette.text, fontFamily: fonts.display, fontSize: 24 },
+  back: { color: '#DCC5A2', fontFamily: fonts.mono, fontSize: 13 },
+  title: { color: '#F2DFC5', fontFamily: fonts.display, fontSize: 24 },
   tabs: { flexDirection: 'row', paddingHorizontal: 18, gap: 6, marginBottom: 10 },
   tab: {
     flex: 1, borderRadius: 16, overflow: 'hidden',
-    backgroundColor: palette.panelSoft,
+    backgroundColor: 'rgba(25, 38, 58, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(151, 171, 205, 0.25)',
   },
   tabActiveWrap: { backgroundColor: 'transparent' },
-  tabGrad: { paddingVertical: 8, alignItems: 'center' },
-  tabText: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10 },
-  tabTextActive: { color: palette.buttonText, fontFamily: fonts.mono, fontSize: 10 },
+  tabGrad: { paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(224,198,159,0.35)' },
+  tabText: { color: 'rgba(220,197,162,0.7)', fontFamily: fonts.mono, fontSize: 10 },
+  tabTextActive: { color: '#F3E2C8', fontFamily: fonts.mono, fontSize: 10 },
   myRank: {
-    marginHorizontal: 18, marginBottom: 10, borderRadius: 14, paddingVertical: 8, alignItems: 'center',
+    marginHorizontal: 18, marginBottom: 10, borderRadius: 14, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(220,194,151,0.38)',
   },
-  myRankText: { color: palette.primaryStrong, fontFamily: fonts.mono, fontSize: 12 },
+  myRankText: { color: '#E6CEA8', fontFamily: fonts.mono, fontSize: 12 },
   empty: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, textAlign: 'center', marginTop: 40 },
   row: {
     marginHorizontal: 18, marginBottom: 6, borderRadius: 16,
-    backgroundColor: palette.panel,
+    backgroundColor: 'rgba(22, 34, 54, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(151, 171, 205, 0.24)',
     flexDirection: 'row', alignItems: 'center', padding: 12,
     ...shadows.subtle,
   },
-  rank: { color: palette.muted, fontFamily: fonts.display, fontSize: 18, width: 40, textAlign: 'center' },
-  rankTop: { color: palette.warning, fontSize: 22 },
+  rank: { color: 'rgba(220,197,162,0.72)', fontFamily: fonts.display, fontSize: 18, width: 40, textAlign: 'center' },
+  rankTop: { color: '#E6CEA8', fontSize: 22 },
   info: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  name: { color: palette.text, fontFamily: fonts.body, fontSize: 15 },
+  name: { color: '#F3E2C8', fontFamily: fonts.body, fontSize: 15 },
   statsRow: { flexDirection: 'row', gap: 12 },
-  stat: { color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
+  stat: { color: 'rgba(220,197,162,0.72)', fontFamily: fonts.mono, fontSize: 11 },
 });

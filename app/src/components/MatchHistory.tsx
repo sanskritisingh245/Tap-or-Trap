@@ -37,7 +37,7 @@ export function MatchHistory({ onBack }: MatchHistoryProps) {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
             const status = item.cancelled ? 'CANCELLED' : item.won ? 'WIN' : 'LOSS';
-            const color = item.cancelled ? palette.muted : item.won ? palette.success : palette.danger;
+            const color = item.cancelled ? 'rgba(220,197,162,0.78)' : item.won ? '#CFE9D2' : '#F3C1CA';
             return (
               <View style={styles.card}>
                 <View style={styles.rowTop}>
@@ -73,23 +73,23 @@ function formatTimeAgo(ts: number) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.bg, paddingTop: 56 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 },
-  back: { color: palette.primary, fontFamily: fonts.body, fontSize: 15 },
-  title: { color: palette.text, fontFamily: fonts.display, fontSize: 24 },
+  back: { color: '#DCC5A2', fontFamily: fonts.body, fontSize: 15 },
+  title: { color: '#F2DFC5', fontFamily: fonts.display, fontSize: 24 },
   list: { paddingHorizontal: 20, paddingBottom: 30 },
   card: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panel,
+    borderColor: 'rgba(151, 171, 205, 0.24)',
+    backgroundColor: 'rgba(22, 34, 54, 0.94)',
     padding: 14,
     marginBottom: 10,
     ...shadows.subtle,
   },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   status: { fontFamily: fonts.mono, fontSize: 11 },
-  time: { color: palette.tertiary, fontFamily: fonts.mono, fontSize: 11 },
-  opponent: { marginTop: 6, color: palette.text, fontFamily: fonts.body, fontSize: 15 },
-  metrics: { marginTop: 6, color: palette.muted, fontFamily: fonts.mono, fontSize: 11 },
+  time: { color: 'rgba(220,197,162,0.55)', fontFamily: fonts.mono, fontSize: 11 },
+  opponent: { marginTop: 6, color: '#F3E2C8', fontFamily: fonts.body, fontSize: 15 },
+  metrics: { marginTop: 6, color: 'rgba(220,197,162,0.72)', fontFamily: fonts.mono, fontSize: 11 },
   empty: { alignItems: 'center', marginTop: 80 },
-  emptyTitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 16 },
+  emptyTitle: { color: 'rgba(220,197,162,0.72)', fontFamily: fonts.body, fontSize: 16 },
 });

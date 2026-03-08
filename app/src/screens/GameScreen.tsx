@@ -94,10 +94,13 @@ export default function GameScreen({
     return (
       <View style={styles.screen}>
         <AmbientBackground tone="cool" />
-        <View style={styles.card}>
-          <Text style={styles.title}>TapRush</Text>
+        <View style={styles.connectCard}>
+          <Text style={styles.connectKicker}>PREMIUM DUEL</Text>
+          <Text style={styles.connectTitle}>TapRush</Text>
+          <Text style={styles.connectSub}>Competitive reaction duels</Text>
+          <View style={styles.connectDivider} />
           <TouchableOpacity
-            style={styles.primaryWrap}
+            style={[styles.primaryWrap, styles.connectPrimaryWrap]}
             onPress={async () => {
               try {
                 await wallet.connect();
@@ -107,8 +110,8 @@ export default function GameScreen({
             disabled={wallet.loading}
             activeOpacity={0.88}
           >
-            <LinearGradient colors={[palette.primary, palette.primaryStrong]} style={styles.primaryBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-              {wallet.loading ? <ActivityIndicator color={palette.buttonText} /> : <Text style={styles.primaryText}>Connect Wallet</Text>}
+            <LinearGradient colors={['#2A355C', '#132144']} style={[styles.primaryBtn, styles.connectPrimaryBtn]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              {wallet.loading ? <ActivityIndicator color={palette.buttonText} /> : <Text style={[styles.primaryText, styles.connectPrimaryText]}>Connect Wallet</Text>}
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -145,12 +148,25 @@ export default function GameScreen({
   }
 
   if (match.phase === 'queued') {
+    const waitedLongEnough = match.queueStartTime && (Date.now() - match.queueStartTime) > 3000;
     return (
       <View style={styles.screen}>
         <AmbientBackground tone="cool" />
         <Animated.View style={[styles.card, { transform: [{ scale: pulse }] }]}>
           <ActivityIndicator size="large" color={palette.primary} />
           <Text style={styles.subtitle}>Finding Opponent</Text>
+          {waitedLongEnough && (
+            <TouchableOpacity
+              style={styles.botSuggestBtn}
+              onPress={async () => {
+                await match.leaveQueue();
+                await match.joinBot();
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.botSuggestText}>Play vs Bot instead?</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.secondaryBtn} onPress={async () => { await match.leaveQueue(); setUiMode('lobby'); }} activeOpacity={0.85}>
             <Text style={styles.secondaryText}>Cancel</Text>
           </TouchableOpacity>
@@ -164,6 +180,7 @@ export default function GameScreen({
       <Pressable style={styles.screen} onPress={match.handleTap}>
         <AmbientBackground tone="warm" />
         <View style={styles.card}>
+          {match.isBot && <Text style={styles.botLabel}>vs Bot</Text>}
           <Text style={styles.icon}>{isStill ? 'Ready' : 'Keep Still'}</Text>
           <View style={styles.track}>
             <View style={[styles.fill, { backgroundColor: isStill ? palette.success : palette.danger }]} />
@@ -203,6 +220,7 @@ export default function GameScreen({
         <AmbientBackground tone={won ? 'cool' : 'danger'} />
         <View style={[styles.card, won ? { borderColor: 'rgba(65,210,140,0.45)' } : { borderColor: 'rgba(255,90,122,0.45)' }]}>
           <Text style={styles.title}>{won ? 'Victory' : 'Defeat'}</Text>
+          {match.isBot && <Text style={styles.botLabel}>vs Bot</Text>}
           <Text style={styles.small}>{line}</Text>
           <Text style={styles.small}>{deriveUsername(opponent || '')}</Text>
 
@@ -214,8 +232,12 @@ export default function GameScreen({
           {won && currentStreak >= 2 ? <Text style={styles.good}>{currentStreak} win streak</Text> : null}
           {bestReaction !== null && reaction !== null && reaction > 0 && reaction <= bestReaction ? <Text style={styles.good}>New personal best</Text> : null}
 
-          <TouchableOpacity style={styles.primaryWrap} onPress={async () => { match.reset(); await refreshCredits(); try { await match.joinQueue(); } catch { setUiMode('lobby'); } }} activeOpacity={0.88}>
-            <LinearGradient colors={[palette.primary, palette.primaryStrong]} style={styles.primaryBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <TouchableOpacity style={styles.primaryWrap} onPress={async () => {
+            const wasBot = match.isBot;
+            match.reset(); await refreshCredits();
+            try { wasBot ? await match.joinBot() : await match.joinQueue(); } catch { setUiMode('lobby'); }
+          }} activeOpacity={0.88}>
+            <LinearGradient colors={['#2A355C', '#132144']} style={styles.primaryBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
               <Text style={styles.primaryText}>Rematch</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -258,6 +280,20 @@ export default function GameScreen({
             const msg = e?.message || 'Unable to join queue';
             setError(msg);
             Alert.alert('Find Match Failed', msg);
+          } finally {
+            setLobbyLoading(false);
+          }
+        }}
+        onPlayBot={async () => {
+          if (lobbyLoading) return;
+          setLobbyLoading(true);
+          setError(null);
+          try {
+            await match.joinBot();
+          } catch (e: any) {
+            const msg = e?.message || 'Unable to start bot match';
+            setError(msg);
+            Alert.alert('Bot Match Failed', msg);
           } finally {
             setLobbyLoading(false);
           }
@@ -316,60 +352,130 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panel,
+    borderColor: 'rgba(151, 171, 205, 0.26)',
+    backgroundColor: 'rgba(22, 34, 54, 0.94)',
     padding: 20,
     alignItems: 'center',
     ...shadows.medium,
   },
-  title: { color: palette.text, fontFamily: fonts.display, fontSize: 34, marginBottom: 4 },
-  subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, marginTop: 10 },
-  small: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, marginTop: 3 },
+  connectCard: {
+    borderRadius: 26,
+    borderWidth: 1.2,
+    borderColor: 'rgba(228, 203, 164, 0.32)',
+    backgroundColor: 'rgba(18, 30, 49, 0.92)',
+    paddingVertical: 26,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    shadowColor: '#050b1c',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.42,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  connectKicker: { color: 'rgba(220,197,162,0.7)', fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.3 },
+  connectTitle: { color: '#F2DFC5', fontFamily: fonts.display, fontSize: 44, marginBottom: 4 },
+  connectSub: { marginTop: 2, color: 'rgba(220,197,162,0.76)', fontFamily: fonts.body, fontSize: 14 },
+  connectDivider: {
+    marginTop: 12,
+    width: 112,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: 'rgba(232, 197, 143, 0.35)',
+  },
+  title: { color: '#F2DFC5', fontFamily: fonts.display, fontSize: 34, marginBottom: 4 },
+  subtitle: { color: 'rgba(220,197,162,0.72)', fontFamily: fonts.body, fontSize: 14, marginTop: 10 },
+  small: { color: 'rgba(220,197,162,0.72)', fontFamily: fonts.body, fontSize: 13, marginTop: 3 },
 
   primaryWrap: { width: '100%', borderRadius: 14, overflow: 'hidden', marginTop: 14 },
-  primaryBtn: { paddingVertical: 14, alignItems: 'center' },
-  primaryText: { color: palette.buttonText, fontFamily: fonts.display, fontSize: 20 },
+  connectPrimaryWrap: {
+    marginTop: 26,
+    width: '100%',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(248, 234, 206, 0.18)',
+    shadowColor: '#0F1735',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.34,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  primaryBtn: { paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(224,198,159,0.4)' },
+  connectPrimaryBtn: {
+    paddingVertical: 16,
+    borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: 'rgba(240, 219, 186, 0.48)',
+  },
+  primaryText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 20 },
+  connectPrimaryText: { fontSize: 30, lineHeight: 32 },
 
   secondaryBtn: {
     width: '100%',
     marginTop: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft,
+    borderColor: 'rgba(84, 57, 26, 0.28)',
+    backgroundColor: 'rgba(232, 197, 143, 0.9)',
     paddingVertical: 12,
     alignItems: 'center',
   },
-  secondaryText: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  secondaryText: { color: '#4D3520', fontFamily: fonts.display, fontSize: 14 },
 
-  icon: { color: palette.text, fontFamily: fonts.display, fontSize: 28, marginBottom: 10 },
+  botSuggestBtn: {
+    width: '100%',
+    marginTop: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(83, 226, 210, 0.35)',
+    backgroundColor: 'rgba(83, 226, 210, 0.1)',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  botSuggestText: { color: '#53E2D2', fontFamily: fonts.body, fontSize: 14 },
+
+  botLabel: {
+    color: '#53E2D2',
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(83, 226, 210, 0.3)',
+    backgroundColor: 'rgba(83, 226, 210, 0.08)',
+    overflow: 'hidden',
+  },
+
+  icon: { color: '#F2DFC5', fontFamily: fonts.display, fontSize: 28, marginBottom: 10 },
   track: {
     width: '100%',
     height: 16,
     borderRadius: 10,
-    backgroundColor: palette.bgAlt,
+    backgroundColor: 'rgba(12, 24, 40, 0.85)',
     borderWidth: 1,
-    borderColor: palette.panelStroke,
+    borderColor: 'rgba(151, 171, 205, 0.24)',
     overflow: 'hidden',
   },
   fill: { width: '100%', height: '100%' },
 
   drawScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.bg },
-  drawText: { color: palette.text, fontFamily: fonts.display, fontSize: 110, letterSpacing: 1 },
+  drawText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 110, letterSpacing: 1 },
 
   metricsRow: { marginTop: 12, width: '100%', flexDirection: 'row', gap: 8 },
   metric: {
     flex: 1,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
-    backgroundColor: palette.panelSoft,
+    borderColor: 'rgba(151, 171, 205, 0.25)',
+    backgroundColor: 'rgba(25, 38, 58, 0.92)',
     alignItems: 'center',
     paddingVertical: 10,
   },
-  metricLabel: { color: palette.tertiary, fontFamily: fonts.mono, fontSize: 10 },
-  metricValue: { color: palette.text, fontFamily: fonts.display, fontSize: 21, marginTop: 3 },
-  good: { color: palette.success, fontFamily: fonts.body, fontSize: 13, marginTop: 8 },
+  metricLabel: { color: 'rgba(220,197,162,0.62)', fontFamily: fonts.mono, fontSize: 10 },
+  metricValue: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 21, marginTop: 3 },
+  good: { color: '#CFE9D2', fontFamily: fonts.body, fontSize: 13, marginTop: 8 },
 
   errorBanner: {
     position: 'absolute',
@@ -392,17 +498,17 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   loadingBox: {
-    backgroundColor: palette.panel,
+    backgroundColor: 'rgba(22, 34, 54, 0.96)',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: palette.panelStroke,
+    borderColor: 'rgba(151, 171, 205, 0.26)',
     padding: 28,
     alignItems: 'center',
     gap: 12,
     ...shadows.medium,
   },
   loadingLabel: {
-    color: palette.muted,
+    color: 'rgba(220,197,162,0.72)',
     fontFamily: fonts.body,
     fontSize: 14,
   },

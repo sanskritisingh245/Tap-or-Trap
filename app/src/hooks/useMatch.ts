@@ -44,6 +44,8 @@ export function useMatch() {
   const [commitment, setCommitment] = useState<string | null>(null);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [isBot, setIsBot] = useState(false);
+  const [queueStartTime, setQueueStartTime] = useState<number | null>(null);
 
   const drawReceivedLocalTime = useRef<number>(0);
   const drawReceivedAt = useRef<number>(0);
@@ -137,6 +139,8 @@ export function useMatch() {
         setMatchId(data.matchId);
         setOpponent(data.opponent || null);
         setCommitment(data.commitment || null);
+        setIsBot(data.isBot === true);
+        setQueueStartTime(null);
         setPhase('standoff');
         tappedRef.current = false;
         // Start match state polling
@@ -163,9 +167,23 @@ export function useMatch() {
   const joinQueue = useCallback(async () => {
     await api.joinQueue();
     setPhase('queued');
+    setQueueStartTime(Date.now());
     tappedRef.current = false;
     pollMatchmaking();
   }, [pollMatchmaking]);
+
+  const joinBot = useCallback(async () => {
+    const result = await api.joinBot();
+    if (result.status === 'matched') {
+      setMatchId(result.matchId);
+      setOpponent(result.opponent || null);
+      setIsBot(true);
+      setQueueStartTime(null);
+      setPhase('standoff');
+      tappedRef.current = false;
+      pollMatchState(result.matchId);
+    }
+  }, [pollMatchState]);
 
   const leaveQueue = useCallback(async () => {
     stopPolling();
@@ -250,6 +268,8 @@ export function useMatch() {
     setCommitment(null);
     setResult(null);
     setRoomCode(null);
+    setIsBot(false);
+    setQueueStartTime(null);
     tappedRef.current = false;
     drawReceivedLocalTime.current = 0;
     drawReceivedAt.current = 0;
@@ -267,8 +287,11 @@ export function useMatch() {
     commitment,
     result,
     roomCode,
+    isBot,
+    queueStartTime,
     joinQueue,
     leaveQueue,
+    joinBot,
     createRoom,
     joinRoom,
     cancelRoom,

@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...shadows.medium,
   },
-  head: { color: '#F2DFC5', fontFamily: fonts.display, fontSize: 24, marginBottom: 12 },
+  head: { color: '#F2DFC5', fontFamily: fonts.display, fontSize: 20, marginBottom: 12 },
   codeWrap: {
     width: '100%',
     borderRadius: 14,
@@ -71,10 +71,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     marginBottom: 12,
   },
-  code: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 44, letterSpacing: 6 },
+  code: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 36, letterSpacing: 5 },
   mainBtnWrap: { width: '100%', borderRadius: 14, overflow: 'hidden' },
   mainBtn: { paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(224,198,159,0.4)' },
-  mainText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 18 },
+  mainText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 16 },
   cancel: {
     marginTop: 10,
     width: '100%',
@@ -85,5 +85,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
-  cancelText: { color: '#4D3520', fontFamily: fonts.display, fontSize: 14 },
+  cancelText: { color: '#4D3520', fontFamily: fonts.display, fontSize: 13 },
 });

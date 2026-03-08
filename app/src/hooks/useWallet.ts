@@ -41,31 +41,10 @@ export function useWallet() {
   const mwaAuthToken = useRef<AuthToken | null>(null);
   const restoringSession = useRef(false);
 
-  // Restore session from AsyncStorage on mount
+  // Don't auto-connect — always start on connect wallet screen.
+  // Stored pubkey is still reused in connect() to preserve credits/progress.
   useEffect(() => {
-    (async () => {
-      try {
-        restoringSession.current = true;
-        const [[, storedPubkey], [, storedJwt]] = await AsyncStorage.multiGet([
-          STORAGE_KEY_PUBKEY,
-          STORAGE_KEY_JWT,
-        ]);
-        if (storedPubkey) {
-          // Re-authenticate with backend to get fresh token
-          try {
-            await devLogin(storedPubkey);
-            setPublicKey(storedPubkey);
-            setConnected(true);
-            console.log('[useWallet] session restored for', storedPubkey);
-          } catch {
-            console.log('[useWallet] session restore failed, clearing stored data');
-            await AsyncStorage.multiRemove([STORAGE_KEY_AUTH, STORAGE_KEY_PUBKEY, STORAGE_KEY_JWT]);
-          }
-        }
-      } catch {} finally {
-        restoringSession.current = false;
-      }
-    })();
+    restoringSession.current = false;
   }, []);
 
   const connect = useCallback(async () => {
