@@ -54,22 +54,26 @@ jobs:
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          IMAGE_TAG: ${{ github.sha }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TREASURY_PRIVATE_KEY: ${{ secrets.TREASURY_PRIVATE_KEY }}
         with:
           host: ${{ secrets.SSH_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,IMAGE_TAG,POSTGRES_PASSWORD,SOLANA_RPC_URL,JWT_SECRET,TREASURY_PRIVATE_KEY
           script: |
             cd ~/snapduel
-            echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
 
-            cat > .env.production <<EOF
-DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-IMAGE_TAG=${{ github.sha }}
-POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-SOLANA_RPC_URL=${{ secrets.SOLANA_RPC_URL }}
-JWT_SECRET=${{ secrets.JWT_SECRET }}
-TREASURY_PRIVATE_KEY=${{ secrets.TREASURY_PRIVATE_KEY }}
-EOF
+            printf 'DOCKERHUB_USERNAME=%s\nIMAGE_TAG=%s\nPOSTGRES_PASSWORD=%s\nSOLANA_RPC_URL=%s\nJWT_SECRET=%s\nTREASURY_PRIVATE_KEY=%s\n' \
+              "$DOCKERHUB_USERNAME" "$IMAGE_TAG" "$POSTGRES_PASSWORD" "$SOLANA_RPC_URL" "$JWT_SECRET" "$TREASURY_PRIVATE_KEY" \
+              > .env.production
 
             docker compose -f docker-compose.production.yml --env-file .env.production pull
             docker compose -f docker-compose.production.yml --env-file .env.production up -d --remove-orphans
