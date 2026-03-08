@@ -89,13 +89,14 @@ function pairFromQueue(db) {
  * Deducts credits for a match (on-chain or dev mode).
  */
 function deductForMatch(db, playerOne, playerTwo, match) {
-  if (process.env.SKIP_ONCHAIN !== 'true') {
+  // Skip on-chain deduction if either player is a bot (bot wallets are not valid Solana keys)
+  if (process.env.SKIP_ONCHAIN !== 'true' && !isBot(playerOne) && !isBot(playerTwo)) {
     deductCredits(playerOne, playerTwo, match.id).catch((err) => {
       console.error(`Failed to deduct credits for match ${match.id}:`, err.message);
       db.prepare("UPDATE matches SET state = 'CANCELLED' WHERE id = ?").run(match.id);
       const now = Date.now();
-      if (!isBot(playerOne)) db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerOne, now);
-      if (!isBot(playerTwo)) db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerTwo, now);
+      db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerOne, now);
+      db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerTwo, now);
     });
   } else {
     if (!isBot(playerOne)) db.prepare('UPDATE players SET credits = credits - 1 WHERE wallet = ? AND credits > 0').run(playerOne);

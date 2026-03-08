@@ -17,6 +17,32 @@ import { fonts, palette, shadows } from '../theme/ui';
 
 type UIMode = 'lobby' | 'join_code' | 'history' | 'leaderboard' | 'game';
 
+function QueueBotPrompt({ queueStartTime, onPlayBot }: { queueStartTime: number | null; onPlayBot: () => void }) {
+  const [secondsLeft, setSecondsLeft] = useState(5);
+
+  useEffect(() => {
+    if (!queueStartTime) return;
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - queueStartTime) / 1000);
+      const left = Math.max(0, 5 - elapsed);
+      setSecondsLeft(left);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [queueStartTime]);
+
+  if (secondsLeft > 0) {
+    return <Text style={{ color: 'rgba(220,197,162,0.5)', fontFamily: fonts.mono, fontSize: 12, marginTop: 12 }}>Searching... {secondsLeft}s</Text>;
+  }
+
+  return (
+    <TouchableOpacity style={styles.botSuggestBtn} onPress={onPlayBot} activeOpacity={0.85}>
+      <Text style={styles.botSuggestText}>No match found — Play vs Bot?</Text>
+    </TouchableOpacity>
+  );
+}
+
 const WIN_LINES = ['Excellent timing', 'Sharp finish', 'Clean execution'];
 const LOSE_LINES = ['Close one', 'Try again', 'You are improving'];
 
@@ -148,25 +174,19 @@ export default function GameScreen({
   }
 
   if (match.phase === 'queued') {
-    const waitedLongEnough = match.queueStartTime && (Date.now() - match.queueStartTime) > 3000;
     return (
       <View style={styles.screen}>
         <AmbientBackground tone="cool" />
         <Animated.View style={[styles.card, { transform: [{ scale: pulse }] }]}>
           <ActivityIndicator size="large" color={palette.primary} />
           <Text style={styles.subtitle}>Finding Opponent</Text>
-          {waitedLongEnough && (
-            <TouchableOpacity
-              style={styles.botSuggestBtn}
-              onPress={async () => {
-                await match.leaveQueue();
-                await match.joinBot();
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.botSuggestText}>Play vs Bot instead?</Text>
-            </TouchableOpacity>
-          )}
+          <QueueBotPrompt
+            queueStartTime={match.queueStartTime}
+            onPlayBot={async () => {
+              await match.leaveQueue();
+              await match.joinBot();
+            }}
+          />
           <TouchableOpacity style={styles.secondaryBtn} onPress={async () => { await match.leaveQueue(); setUiMode('lobby'); }} activeOpacity={0.85}>
             <Text style={styles.secondaryText}>Cancel</Text>
           </TouchableOpacity>
