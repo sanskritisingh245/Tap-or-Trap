@@ -18,7 +18,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push backend to DockerHub
+      - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -62,20 +62,15 @@ jobs:
             cd ~/snapduel
             echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
-            rm -f .env.production
-
-            cat <<EOF > .env.production
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            IMAGE_TAG=${{ github.sha }}
-            PORT=3000
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            SOLANA_RPC_URL=${{ secrets.SOLANA_RPC_URL }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            TREASURY_PRIVATE_KEY=${{ secrets.TREASURY_PRIVATE_KEY }}
-            EOF
+            cat > .env.production <<EOF
+DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+IMAGE_TAG=${{ github.sha }}
+POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+SOLANA_RPC_URL=${{ secrets.SOLANA_RPC_URL }}
+JWT_SECRET=${{ secrets.JWT_SECRET }}
+TREASURY_PRIVATE_KEY=${{ secrets.TREASURY_PRIVATE_KEY }}
+EOF
 
             docker compose -f docker-compose.production.yml --env-file .env.production pull
             docker compose -f docker-compose.production.yml --env-file .env.production up -d --remove-orphans
-
             docker system prune -af

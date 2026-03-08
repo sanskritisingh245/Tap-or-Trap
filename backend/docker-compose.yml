@@ -6,39 +6,33 @@ services:
     container_name: snapduel-postgres
     restart: always
     environment:
-      - POSTGRES_USER=snapduel
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-snapduel}
-      - POSTGRES_DB=snapduel
+      POSTGRES_USER: snapduel
+      POSTGRES_PASSWORD: snapduel
+      POSTGRES_DB: snapduel
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U snapduel"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
 
   backend:
-    image: ${DOCKERHUB_IMAGE_PREFIX:-snapduel}-backend:${IMAGE_TAG:-latest}
+    build: .
     container_name: snapduel-backend
     restart: always
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
+      - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      - NODE_ENV=production
-      - PORT=${PORT:-3000}
-      - DATABASE_URL=${DATABASE_URL:-postgres://snapduel:snapduel@postgres:5432/snapduel}
-      - SOLANA_RPC_URL=${SOLANA_RPC_URL}
-      - JWT_SECRET=${JWT_SECRET}
-      - TREASURY_PRIVATE_KEY=${TREASURY_PRIVATE_KEY}
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${PORT:-3000}/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://snapduel:snapduel@postgres:5432/snapduel
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      TREASURY_PRIVATE_KEY: ${TREASURY_PRIVATE_KEY}
 
 volumes:
   pgdata:
