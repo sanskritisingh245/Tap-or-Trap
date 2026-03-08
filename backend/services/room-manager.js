@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const { eq, and, lt, or, desc } = require('drizzle-orm');
+const { rooms } = require('../db/schema');
 
 const ROOM_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes
 const CODE_LENGTH = 6;
@@ -19,19 +21,19 @@ function generateRoomCode() {
 /**
  * Creates a private room for friend challenge.
  *
- * @param {object} db - SQLite database instance
+ * @param {object} db - Drizzle database instance
  * @param {string} creatorWallet - Wallet pubkey of the room creator
  * @returns {{ roomCode: string }}
  */
-function createRoom(db, creatorWallet) {
+async function createRoom(db, creatorWallet) {
   // Check if creator already has an active room
-  const existing = db.prepare(
-    "SELECT code FROM rooms WHERE creator_wallet = ? AND status = 'WAITING'"
-  ).get(creatorWallet);
+  const [existing] = await db.select({ code: rooms.code }).from(rooms).where(
+    and(eq(rooms.creatorWallet, creatorWallet), eq(rooms.status, 'WAITING'))
+  );
 
   if (existing) {
     // Cancel old room first
-    db.prepare("UPDATE rooms SET status = 'CANCELLED' WHERE code = ?").run(existing.code);
+    await db.update(rooms).set({ status: 'CANCELLED' }).where(eq(rooms.code, existing.code));
   }
 
   let roomCode;
@@ -40,13 +42,20 @@ function createRoom(db, creatorWallet) {
     roomCode = generateRoomCode();
     attempts++;
     if (attempts > 10) throw new Error('Failed to generate unique room code');
-  } while (db.prepare('SELECT code FROM rooms WHERE code = ? AND status = ?').get(roomCode, 'WAITING'));
+    const [dup] = await db.select({ code: rooms.code }).from(rooms).where(
+      and(eq(rooms.code, roomCode), eq(rooms.status, 'WAITING'))
+    );
+    if (!dup) break;
+  } while (true);
 
   const now = Date.now();
-  db.prepare(`
-    INSERT INTO rooms (code, creator_wallet, status, created_at, expires_at)
-    VALUES (?, ?, 'WAITING', ?, ?)
-  `).run(roomCode, creatorWallet, now, now + ROOM_EXPIRY_MS);
+  await db.insert(rooms).values({
+    code: roomCode,
+    creatorWallet: creatorWallet,
+    status: 'WAITING',
+    createdAt: now,
+    expiresAt: now + ROOM_EXPIRY_MS,
+  });
 
   return { roomCode };
 }
@@ -54,65 +63,64 @@ function createRoom(db, creatorWallet) {
 /**
  * Joins an existing room via invite code.
  *
- * @param {object} db - SQLite database instance
+ * @param {object} db - Drizzle database instance
  * @param {string} roomCode - 6-char invite code
  * @param {string} joinerWallet - Wallet pubkey of the joiner
  * @returns {{ success: boolean, creatorWallet?: string, error?: string }}
  */
-function joinRoom(db, roomCode, joinerWallet) {
-  const room = db.prepare(
-    "SELECT * FROM rooms WHERE code = ? AND status = 'WAITING'"
-  ).get(roomCode.toUpperCase());
+async function joinRoom(db, roomCode, joinerWallet) {
+  const [room] = await db.select().from(rooms).where(
+    and(eq(rooms.code, roomCode.toUpperCase()), eq(rooms.status, 'WAITING'))
+  );
 
   if (!room) {
     return { success: false, error: 'Room not found or expired' };
   }
 
-  if (Date.now() > room.expires_at) {
-    db.prepare("UPDATE rooms SET status = 'EXPIRED' WHERE code = ?").run(roomCode);
+  if (Date.now() > room.expiresAt) {
+    await db.update(rooms).set({ status: 'EXPIRED' }).where(eq(rooms.code, roomCode));
     return { success: false, error: 'Room has expired' };
   }
 
-  if (room.creator_wallet === joinerWallet) {
+  if (room.creatorWallet === joinerWallet) {
     return { success: false, error: 'Cannot join your own room' };
   }
 
   // Mark room as matched
-  db.prepare(`
-    UPDATE rooms SET joiner_wallet = ?, status = 'MATCHED'
-    WHERE code = ?
-  `).run(joinerWallet, roomCode);
+  await db.update(rooms).set({ joinerWallet: joinerWallet, status: 'MATCHED' }).where(eq(rooms.code, roomCode));
 
-  return { success: true, creatorWallet: room.creator_wallet };
+  return { success: true, creatorWallet: room.creatorWallet };
 }
 
 /**
  * Cancels a room (creator cancels before someone joins).
  */
-function cancelRoom(db, creatorWallet) {
-  const result = db.prepare(`
-    UPDATE rooms SET status = 'CANCELLED'
-    WHERE creator_wallet = ? AND status = 'WAITING'
-  `).run(creatorWallet);
+async function cancelRoom(db, creatorWallet) {
+  const result = await db.update(rooms).set({ status: 'CANCELLED' }).where(
+    and(eq(rooms.creatorWallet, creatorWallet), eq(rooms.status, 'WAITING'))
+  ).returning({ code: rooms.code });
 
-  return { cancelled: result.changes > 0 };
+  return { cancelled: result.length > 0 };
 }
 
 /**
  * Checks room status for polling.
  */
-function getRoomStatus(db, wallet) {
+async function getRoomStatus(db, wallet) {
   // Check if player is a room creator waiting
-  const createdRoom = db.prepare(
-    "SELECT * FROM rooms WHERE creator_wallet = ? AND status IN ('WAITING', 'MATCHED') ORDER BY created_at DESC LIMIT 1"
-  ).get(wallet);
+  const [createdRoom] = await db.select().from(rooms).where(
+    and(
+      eq(rooms.creatorWallet, wallet),
+      or(eq(rooms.status, 'WAITING'), eq(rooms.status, 'MATCHED'))
+    )
+  ).orderBy(desc(rooms.createdAt)).limit(1);
 
   if (createdRoom) {
     if (createdRoom.status === 'MATCHED') {
-      return { status: 'matched', matchId: createdRoom.match_id, roomCode: createdRoom.code };
+      return { status: 'matched', matchId: createdRoom.matchId, roomCode: createdRoom.code };
     }
-    if (Date.now() > createdRoom.expires_at) {
-      db.prepare("UPDATE rooms SET status = 'EXPIRED' WHERE code = ?").run(createdRoom.code);
+    if (Date.now() > createdRoom.expiresAt) {
+      await db.update(rooms).set({ status: 'EXPIRED' }).where(eq(rooms.code, createdRoom.code));
       return { status: 'expired' };
     }
     return { status: 'waiting', roomCode: createdRoom.code };
@@ -124,12 +132,11 @@ function getRoomStatus(db, wallet) {
 /**
  * Expires stale rooms.
  */
-function expireRooms(db) {
+async function expireRooms(db) {
   const now = Date.now();
-  db.prepare(`
-    UPDATE rooms SET status = 'EXPIRED'
-    WHERE status = 'WAITING' AND expires_at < ?
-  `).run(now);
+  await db.update(rooms).set({ status: 'EXPIRED' }).where(
+    and(eq(rooms.status, 'WAITING'), lt(rooms.expiresAt, now))
+  );
 }
 
 module.exports = { createRoom, joinRoom, cancelRoom, getRoomStatus, expireRooms, ROOM_EXPIRY_MS };

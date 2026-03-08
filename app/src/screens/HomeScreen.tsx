@@ -7,11 +7,11 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { getCreditsBalance, getPlayerStats, claimDailyLogin } from '../services/api';
+import { AppDialog } from '../components/AppDialog';
 import { fonts, palette, shadows } from '../theme/ui';
 import type { Screen } from '../../App';
 
@@ -42,6 +42,7 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
   const [xp, setXp] = useState(0);
   const [streak, setStreak] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [dialog, setDialog] = useState<{ title: string; message: string } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -125,7 +126,7 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
                   setCredits(b);
                 } catch (e: any) {
                   console.error('[HOME] Top Up FAILED:', e?.message, e?.stack);
-                  Alert.alert('Top Up Failed', e?.message || 'Could not top up credits');
+                  setDialog({ title: 'Top Up Failed', message: e?.message || 'Could not top up credits' });
                 }
               }}
               disabled={wallet.depositing}
@@ -200,7 +201,7 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
                     setCredits(b);
                   } catch (e: any) {
                     console.error('[HOME] BOOST Top Up FAILED:', e?.message, e?.stack);
-                    Alert.alert('Top Up Failed', e?.message || 'Could not top up credits');
+                    setDialog({ title: 'Top Up Failed', message: e?.message || 'Could not top up credits' });
                   }
                 }}
                 disabled={wallet.depositing}
@@ -213,6 +214,12 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
           </View>
         </View>
       </ScrollView>
+      <AppDialog
+        visible={!!dialog}
+        title={dialog?.title || ''}
+        message={dialog?.message}
+        onClose={() => setDialog(null)}
+      />
     </View>
   );
 }

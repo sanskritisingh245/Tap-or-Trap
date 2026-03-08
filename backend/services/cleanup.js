@@ -1,3 +1,5 @@
+const { eq, and, isNotNull } = require('drizzle-orm');
+const { matches, players } = require('../db/schema');
 const { expireRooms } = require('./room-manager');
 const { cancelMatch } = require('./settler');
 const { isBot } = require('./matchmaker');
@@ -15,71 +17,61 @@ const TAP_TIMEOUT_MS = 15000;       // 15s after draw = timeout
 let cleanupInterval = null;
 
 function startCleanupJob(db) {
-  cleanupInterval = setInterval(() => {
+  cleanupInterval = setInterval(async () => {
     try {
       const now = Date.now();
 
       // 1. Expire stale rooms
-      expireRooms(db);
+      await expireRooms(db);
 
       // 2. Handle STANDOFF disconnects (no polling for > 3s)
-      const standoffMatches = db.prepare(
-        "SELECT * FROM matches WHERE state = 'STANDOFF'"
-      ).all();
+      const standoffMatches = await db.select().from(matches).where(eq(matches.state, 'STANDOFF'));
 
       for (const match of standoffMatches) {
-        const p1LastSeen = getPlayerLastSeen(db, match.player_one);
-        const p2LastSeen = getPlayerLastSeen(db, match.player_two);
+        const p1LastSeen = await getPlayerLastSeen(db, match.playerOne);
+        const p2LastSeen = await getPlayerLastSeen(db, match.playerTwo);
 
         // Bots are never "disconnected"
-        const p1Disconnected = !isBot(match.player_one) && (now - p1LastSeen) > STANDOFF_TIMEOUT_MS;
-        const p2Disconnected = !isBot(match.player_two) && (now - p2LastSeen) > STANDOFF_TIMEOUT_MS;
+        const p1Disconnected = !isBot(match.playerOne) && (now - p1LastSeen) > STANDOFF_TIMEOUT_MS;
+        const p2Disconnected = !isBot(match.playerTwo) && (now - p2LastSeen) > STANDOFF_TIMEOUT_MS;
 
         if (p1Disconnected && p2Disconnected) {
           // Both disconnected — cancel match, refund credits
-          db.prepare("UPDATE matches SET state = 'CANCELLED', forfeit_reason = 'disconnect', settled_at = ? WHERE id = ?")
-            .run(now, match.id);
+          await db.update(matches).set({ state: 'CANCELLED', forfeitReason: 'disconnect', settledAt: now }).where(eq(matches.id, match.id));
           cancelMatch(db, match.id).catch(() => {});
         } else if (p1Disconnected) {
           // Player one disconnected — player two wins
-          db.prepare("UPDATE matches SET state = 'RESOLVED', winner = ?, forfeit_reason = 'disconnect', settled_at = ? WHERE id = ?")
-            .run(match.player_two, now, match.id);
+          await db.update(matches).set({ state: 'RESOLVED', winner: match.playerTwo, forfeitReason: 'disconnect', settledAt: now }).where(eq(matches.id, match.id));
         } else if (p2Disconnected) {
-          db.prepare("UPDATE matches SET state = 'RESOLVED', winner = ?, forfeit_reason = 'disconnect', settled_at = ? WHERE id = ?")
-            .run(match.player_one, now, match.id);
+          await db.update(matches).set({ state: 'RESOLVED', winner: match.playerOne, forfeitReason: 'disconnect', settledAt: now }).where(eq(matches.id, match.id));
         }
       }
 
       // 3. Handle DRAW_FIRED: bot auto-tap + tap timeouts
-      const drawFiredMatches = db.prepare(
-        "SELECT * FROM matches WHERE state = 'DRAW_FIRED' AND draw_fired_at IS NOT NULL"
-      ).all();
+      const drawFiredMatches = await db.select().from(matches).where(and(eq(matches.state, 'DRAW_FIRED'), isNotNull(matches.drawFiredAt)));
 
       for (const match of drawFiredMatches) {
         // Auto-tap for bots that haven't tapped yet
         const botDelay = 150 + Math.floor(Math.random() * 250);
-        if (isBot(match.player_one) && match.player_one_tap_at === null && (now - match.draw_fired_at) >= botDelay) {
-          db.prepare('UPDATE matches SET player_one_tap_at = ?, player_one_reaction_ms = ? WHERE id = ?').run(now, botDelay, match.id);
+        if (isBot(match.playerOne) && match.playerOneTapAt === null && (now - match.drawFiredAt) >= botDelay) {
+          await db.update(matches).set({ playerOneTapAt: now, playerOneReactionMs: botDelay }).where(eq(matches.id, match.id));
         }
-        if (isBot(match.player_two) && match.player_two_tap_at === null && (now - match.draw_fired_at) >= botDelay) {
-          db.prepare('UPDATE matches SET player_two_tap_at = ?, player_two_reaction_ms = ? WHERE id = ?').run(now, botDelay, match.id);
+        if (isBot(match.playerTwo) && match.playerTwoTapAt === null && (now - match.drawFiredAt) >= botDelay) {
+          await db.update(matches).set({ playerTwoTapAt: now, playerTwoReactionMs: botDelay }).where(eq(matches.id, match.id));
         }
 
-        if ((now - match.draw_fired_at) > TAP_TIMEOUT_MS) {
-          const p1Tapped = match.player_one_tap_at !== null;
-          const p2Tapped = match.player_two_tap_at !== null;
+        if ((now - match.drawFiredAt) > TAP_TIMEOUT_MS) {
+          const p1Tapped = match.playerOneTapAt !== null;
+          const p2Tapped = match.playerTwoTapAt !== null;
 
           if (!p1Tapped && !p2Tapped) {
             // Both timed out — cancel
-            db.prepare("UPDATE matches SET state = 'CANCELLED', forfeit_reason = 'both_timeout', settled_at = ? WHERE id = ?")
-              .run(now, match.id);
+            await db.update(matches).set({ state: 'CANCELLED', forfeitReason: 'both_timeout', settledAt: now }).where(eq(matches.id, match.id));
             cancelMatch(db, match.id).catch(() => {});
           } else if (!p1Tapped) {
-            db.prepare("UPDATE matches SET state = 'RESOLVED', winner = ?, forfeit_reason = 'timeout', settled_at = ? WHERE id = ?")
-              .run(match.player_two, now, match.id);
+            await db.update(matches).set({ state: 'RESOLVED', winner: match.playerTwo, forfeitReason: 'timeout', settledAt: now }).where(eq(matches.id, match.id));
           } else if (!p2Tapped) {
-            db.prepare("UPDATE matches SET state = 'RESOLVED', winner = ?, forfeit_reason = 'timeout', settled_at = ? WHERE id = ?")
-              .run(match.player_one, now, match.id);
+            await db.update(matches).set({ state: 'RESOLVED', winner: match.playerOne, forfeitReason: 'timeout', settledAt: now }).where(eq(matches.id, match.id));
           }
         }
       }
@@ -98,9 +90,9 @@ function stopCleanupJob() {
   }
 }
 
-function getPlayerLastSeen(db, wallet) {
-  const player = db.prepare('SELECT last_seen FROM players WHERE wallet = ?').get(wallet);
-  return player?.last_seen || 0;
+async function getPlayerLastSeen(db, wallet) {
+  const [player] = await db.select({ lastSeen: players.lastSeen }).from(players).where(eq(players.wallet, wallet));
+  return player?.lastSeen || 0;
 }
 
 module.exports = { startCleanupJob, stopCleanupJob };

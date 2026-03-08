@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { eq, and, sql } = require('drizzle-orm');
+const { players, dailyChallenges } = require('../db/schema');
 
 // Challenge pool — 3 are picked per day, seeded by date
 const CHALLENGE_POOL = [
@@ -33,34 +35,33 @@ function pickDailyChallenges(dateStr) {
 }
 
 // GET /daily/challenges — get today's challenges (creates if missing)
-router.get('/challenges', (req, res) => {
+router.get('/challenges', async (req, res) => {
   const db = req.app.locals.db;
   const wallet = req.wallet;
   const today = new Date().toISOString().split('T')[0];
 
-  let challenges = db.prepare('SELECT * FROM daily_challenges WHERE wallet = ? AND date = ?').all(wallet, today);
+  let challenges = await db.select().from(dailyChallenges).where(and(eq(dailyChallenges.wallet, wallet), eq(dailyChallenges.date, today)));
 
   if (challenges.length === 0) {
     const picks = pickDailyChallenges(today);
-    const insert = db.prepare('INSERT OR IGNORE INTO daily_challenges (wallet, challenge_type, target, reward_xp, reward_credits, date) VALUES (?, ?, ?, ?, ?, ?)');
     for (const ch of picks) {
-      insert.run(wallet, ch.type, ch.target, ch.xp, ch.credits, today);
+      await db.insert(dailyChallenges).values({ wallet, challengeType: ch.type, target: ch.target, rewardXp: ch.xp, rewardCredits: ch.credits, date: today }).onConflictDoNothing();
     }
-    challenges = db.prepare('SELECT * FROM daily_challenges WHERE wallet = ? AND date = ?').all(wallet, today);
+    challenges = await db.select().from(dailyChallenges).where(and(eq(dailyChallenges.wallet, wallet), eq(dailyChallenges.date, today)));
   }
 
   // Map to friendly labels
   const result = challenges.map(ch => {
-    const def = CHALLENGE_POOL.find(c => c.type === ch.challenge_type && c.target === ch.target);
+    const def = CHALLENGE_POOL.find(c => c.type === ch.challengeType && c.target === ch.target);
     return {
       id: ch.id,
-      type: ch.challenge_type,
-      label: def?.label || `${ch.challenge_type} x${ch.target}`,
+      type: ch.challengeType,
+      label: def?.label || `${ch.challengeType} x${ch.target}`,
       target: ch.target,
       progress: ch.progress,
       completed: ch.completed === 1,
-      rewardXp: ch.reward_xp,
-      rewardCredits: ch.reward_credits,
+      rewardXp: ch.rewardXp,
+      rewardCredits: ch.rewardCredits,
     };
   });
 
@@ -68,16 +69,16 @@ router.get('/challenges', (req, res) => {
 });
 
 // POST /daily/claim-login — claim daily login reward
-router.post('/claim-login', (req, res) => {
+router.post('/claim-login', async (req, res) => {
   const db = req.app.locals.db;
   const wallet = req.wallet;
   const today = new Date().toISOString().split('T')[0];
 
-  const player = db.prepare('SELECT last_login_date, login_streak FROM players WHERE wallet = ?').get(wallet);
+  const [player] = await db.select({ lastLoginDate: players.lastLoginDate, loginStreak: players.loginStreak }).from(players).where(eq(players.wallet, wallet));
   if (!player) return res.status(404).json({ error: 'Player not found' });
 
-  if (player.last_login_date === today) {
-    return res.json({ alreadyClaimed: true, streak: player.login_streak, reward: 0 });
+  if (player.lastLoginDate === today) {
+    return res.json({ alreadyClaimed: true, streak: player.loginStreak, reward: 0 });
   }
 
   // Check if streak continues (yesterday) or resets
@@ -86,8 +87,8 @@ router.post('/claim-login', (req, res) => {
   const yesterdayStr = yesterday.toISOString().split('T')[0];
 
   let newStreak;
-  if (player.last_login_date === yesterdayStr) {
-    newStreak = player.login_streak + 1;
+  if (player.lastLoginDate === yesterdayStr) {
+    newStreak = player.loginStreak + 1;
   } else {
     newStreak = 1;
   }
@@ -96,8 +97,7 @@ router.post('/claim-login', (req, res) => {
   let reward = 1;
   if (newStreak % 7 === 0) reward += 5;
 
-  db.prepare('UPDATE players SET last_login_date = ?, login_streak = ?, credits = credits + ? WHERE wallet = ?')
-    .run(today, newStreak, reward, wallet);
+  await db.update(players).set({ lastLoginDate: today, loginStreak: newStreak, credits: sql`${players.credits} + ${reward}` }).where(eq(players.wallet, wallet));
 
   res.json({ alreadyClaimed: false, streak: newStreak, reward });
 });

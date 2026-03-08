@@ -1,4 +1,6 @@
 const express = require('express');
+const { eq, and, notInArray, gt, desc } = require('drizzle-orm');
+const { matches, players, achievements } = require('../db/schema');
 const { validateTap, resolveMatch, TAP_TIMEOUT_MS } = require('../services/arbitrator');
 const { settleMatch, cancelMatch } = require('../services/settler');
 const { generateDrawTime } = require('../services/draw-timer');
@@ -10,10 +12,10 @@ const router = express.Router();
  * If one player in the match is a bot and it's their turn to tap,
  * simulate a bot tap with a random human-like reaction time.
  */
-function handleBotTap(db, match) {
+async function handleBotTap(db, match) {
   const now = Date.now();
-  const botIsPlayerOne = isBot(match.player_one);
-  const botIsPlayerTwo = isBot(match.player_two);
+  const botIsPlayerOne = isBot(match.playerOne);
+  const botIsPlayerTwo = isBot(match.playerTwo);
 
   if (!botIsPlayerOne && !botIsPlayerTwo) return; // No bot in this match
 
@@ -22,44 +24,44 @@ function handleBotTap(db, match) {
 
   // Bot reaction: random 150–400ms after draw fired
   const botDelay = 150 + Math.floor(Math.random() * 250);
-  const timeSinceDraw = now - match.draw_fired_at;
+  const timeSinceDraw = now - match.drawFiredAt;
 
   // Wait until enough time has passed to simulate the bot's reaction
   if (timeSinceDraw < botDelay) return;
 
-  if (botIsPlayerOne && match.player_one_tap_at === null) {
-    db.prepare(`
-      UPDATE matches SET player_one_tap_at = ?, player_one_reaction_ms = ?
-      WHERE id = ?
-    `).run(now, botDelay, match.id);
-    tryResolve(db, match.id);
+  if (botIsPlayerOne && match.playerOneTapAt === null) {
+    await db.update(matches).set({
+      playerOneTapAt: now,
+      playerOneReactionMs: botDelay,
+    }).where(eq(matches.id, match.id));
+    await tryResolve(db, match.id);
   }
 
-  if (botIsPlayerTwo && match.player_two_tap_at === null) {
-    db.prepare(`
-      UPDATE matches SET player_two_tap_at = ?, player_two_reaction_ms = ?
-      WHERE id = ?
-    `).run(now, botDelay, match.id);
-    tryResolve(db, match.id);
+  if (botIsPlayerTwo && match.playerTwoTapAt === null) {
+    await db.update(matches).set({
+      playerTwoTapAt: now,
+      playerTwoReactionMs: botDelay,
+    }).where(eq(matches.id, match.id));
+    await tryResolve(db, match.id);
   }
 }
 
 // GET /match/:id/state — polls for match phase
-router.get('/:id/state', (req, res) => {
+router.get('/:id/state', async (req, res) => {
   const db = req.app.locals.db;
   const wallet = req.wallet;
   const matchId = req.params.id;
 
   // Update last_seen for disconnect detection
-  db.prepare('UPDATE players SET last_seen = ? WHERE wallet = ?').run(Date.now(), wallet);
+  await db.update(players).set({ lastSeen: Date.now() }).where(eq(players.wallet, wallet));
 
-  const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
   if (!match) {
     return res.status(404).json({ error: 'Match not found' });
   }
 
   // Verify this player is in the match
-  if (match.player_one !== wallet && match.player_two !== wallet) {
+  if (match.playerOne !== wallet && match.playerTwo !== wallet) {
     return res.status(403).json({ error: 'You are not in this match' });
   }
 
@@ -70,11 +72,13 @@ router.get('/:id/state', (req, res) => {
     case 'WAITING': {
       // Transition to STANDOFF — recalculate draw time from NOW so standoff has proper duration
       const { drawTimeMs, secret, commitment } = generateDrawTime(now);
-      db.prepare(`
-        UPDATE matches SET state = 'STANDOFF', draw_time_ms = ?, draw_secret = ?, draw_commitment = ?
-        WHERE id = ? AND state = 'WAITING'
-      `).run(drawTimeMs, secret, commitment, matchId);
-      const opponent = match.player_one === wallet ? match.player_two : match.player_one;
+      await db.update(matches).set({
+        state: 'STANDOFF',
+        drawTimeMs,
+        drawSecret: secret,
+        drawCommitment: commitment,
+      }).where(and(eq(matches.id, matchId), eq(matches.state, 'WAITING')));
+      const opponent = match.playerOne === wallet ? match.playerTwo : match.playerOne;
       return res.json({
         phase: 'standoff',
         opponent,
@@ -84,14 +88,16 @@ router.get('/:id/state', (req, res) => {
     }
 
     case 'STANDOFF': {
-      const oppStandoff = match.player_one === wallet ? match.player_two : match.player_one;
+      const oppStandoff = match.playerOne === wallet ? match.playerTwo : match.playerOne;
       // Check if it's time to fire the draw
-      if (match.draw_time_ms && now >= match.draw_time_ms) {
-        const fireResult = db.prepare(
-          "UPDATE matches SET state = 'DRAW_FIRED', draw_fired_at = ? WHERE id = ? AND state = 'STANDOFF'"
-        ).run(now, matchId);
+      if (match.drawTimeMs && now >= match.drawTimeMs) {
+        const fireResult = await db.update(matches).set({
+          state: 'DRAW_FIRED',
+          drawFiredAt: now,
+        }).where(and(eq(matches.id, matchId), eq(matches.state, 'STANDOFF')))
+          .returning({ id: matches.id });
 
-        if (fireResult.changes > 0) {
+        if (fireResult.length > 0) {
           return res.json({
             phase: 'draw',
             drawFiredAt: now,
@@ -111,29 +117,40 @@ router.get('/:id/state', (req, res) => {
 
     case 'DRAW_FIRED': {
       // Trigger bot tap if applicable
-      handleBotTap(db, match);
+      await handleBotTap(db, match);
       // Re-read match in case bot tap resolved it
-      const updated = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+      const [updated] = await db.select().from(matches).where(eq(matches.id, matchId));
       if (updated.state === 'RESOLVED' || updated.state === 'SETTLED') {
         const isW = updated.winner === wallet;
-        const isP1 = updated.player_one === wallet;
-        const myR = isP1 ? updated.player_one_reaction_ms : updated.player_two_reaction_ms;
-        const opR = isP1 ? updated.player_two_reaction_ms : updated.player_one_reaction_ms;
-        const opp = isP1 ? updated.player_two : updated.player_one;
-        const ps = db.prepare('SELECT current_streak, max_streak, best_reaction_ms, wins, losses, xp, tier FROM players WHERE wallet = ?').get(wallet);
-        const ra = db.prepare('SELECT achievement_id FROM achievements WHERE wallet = ? AND unlocked_at > ? ORDER BY unlocked_at DESC').all(wallet, Date.now() - 10000);
+        const isP1 = updated.playerOne === wallet;
+        const myR = isP1 ? updated.playerOneReactionMs : updated.playerTwoReactionMs;
+        const opR = isP1 ? updated.playerTwoReactionMs : updated.playerOneReactionMs;
+        const opp = isP1 ? updated.playerTwo : updated.playerOne;
+        const [ps] = await db.select({
+          currentStreak: players.currentStreak,
+          maxStreak: players.maxStreak,
+          bestReactionMs: players.bestReactionMs,
+          wins: players.wins,
+          losses: players.losses,
+          xp: players.xp,
+          tier: players.tier,
+        }).from(players).where(eq(players.wallet, wallet));
+        const ra = await db.select({ achievementId: achievements.achievementId })
+          .from(achievements)
+          .where(and(eq(achievements.wallet, wallet), gt(achievements.unlockedAt, Date.now() - 10000)))
+          .orderBy(desc(achievements.unlockedAt));
         return res.json({
           phase: 'result', winner: updated.winner, won: isW, reaction: myR, opponentReaction: opR, opponent: opp,
           isBot: isBot(opp),
-          forfeitReason: updated.forfeit_reason, currentStreak: ps?.current_streak || 0, maxStreak: ps?.max_streak || 0,
-          bestReaction: ps?.best_reaction_ms, wins: ps?.wins || 0, losses: ps?.losses || 0, xp: ps?.xp || 0,
-          tier: ps?.tier || 'BRONZE', newAchievements: ra.map(a => a.achievement_id), serverTime: now,
+          forfeitReason: updated.forfeitReason, currentStreak: ps?.currentStreak || 0, maxStreak: ps?.maxStreak || 0,
+          bestReaction: ps?.bestReactionMs, wins: ps?.wins || 0, losses: ps?.losses || 0, xp: ps?.xp || 0,
+          tier: ps?.tier || 'BRONZE', newAchievements: ra.map(a => a.achievementId), serverTime: now,
         });
       }
-      const oppDraw = match.player_one === wallet ? match.player_two : match.player_one;
+      const oppDraw = match.playerOne === wallet ? match.playerTwo : match.playerOne;
       return res.json({
         phase: 'draw',
-        drawFiredAt: match.draw_fired_at,
+        drawFiredAt: match.drawFiredAt,
         opponent: oppDraw,
         isBot: isBot(oppDraw),
         serverTime: now,
@@ -143,20 +160,27 @@ router.get('/:id/state', (req, res) => {
     case 'RESOLVED':
     case 'SETTLED': {
       const isWinner = match.winner === wallet;
-      const isPlayerOne = match.player_one === wallet;
-      const myReaction = isPlayerOne ? match.player_one_reaction_ms : match.player_two_reaction_ms;
-      const opponentReaction = isPlayerOne ? match.player_two_reaction_ms : match.player_one_reaction_ms;
-      const opponent = isPlayerOne ? match.player_two : match.player_one;
+      const isPlayerOne = match.playerOne === wallet;
+      const myReaction = isPlayerOne ? match.playerOneReactionMs : match.playerTwoReactionMs;
+      const opponentReaction = isPlayerOne ? match.playerTwoReactionMs : match.playerOneReactionMs;
+      const opponent = isPlayerOne ? match.playerTwo : match.playerOne;
 
       // Include player stats for result display
-      const playerStats = db.prepare(
-        'SELECT current_streak, max_streak, best_reaction_ms, wins, losses, xp, tier FROM players WHERE wallet = ?'
-      ).get(wallet);
+      const [playerStats] = await db.select({
+        currentStreak: players.currentStreak,
+        maxStreak: players.maxStreak,
+        bestReactionMs: players.bestReactionMs,
+        wins: players.wins,
+        losses: players.losses,
+        xp: players.xp,
+        tier: players.tier,
+      }).from(players).where(eq(players.wallet, wallet));
 
       // Check for newly unlocked achievements
-      const recentAchievements = db.prepare(
-        'SELECT achievement_id FROM achievements WHERE wallet = ? AND unlocked_at > ? ORDER BY unlocked_at DESC'
-      ).all(wallet, Date.now() - 10000);
+      const recentAchievements = await db.select({ achievementId: achievements.achievementId })
+        .from(achievements)
+        .where(and(eq(achievements.wallet, wallet), gt(achievements.unlockedAt, Date.now() - 10000)))
+        .orderBy(desc(achievements.unlockedAt));
 
       return res.json({
         phase: 'result',
@@ -166,18 +190,18 @@ router.get('/:id/state', (req, res) => {
         opponentReaction,
         opponent,
         isBot: isBot(opponent),
-        forfeitReason: match.forfeit_reason,
-        currentStreak: playerStats?.current_streak || 0,
-        maxStreak: playerStats?.max_streak || 0,
-        bestReaction: playerStats?.best_reaction_ms,
+        forfeitReason: match.forfeitReason,
+        currentStreak: playerStats?.currentStreak || 0,
+        maxStreak: playerStats?.maxStreak || 0,
+        bestReaction: playerStats?.bestReactionMs,
         wins: playerStats?.wins || 0,
         losses: playerStats?.losses || 0,
         xp: playerStats?.xp || 0,
         tier: playerStats?.tier || 'BRONZE',
-        newAchievements: recentAchievements.map(a => a.achievement_id),
-        drawSecret: match.draw_secret,
-        drawTime: match.draw_time_ms,
-        commitment: match.draw_commitment,
+        newAchievements: recentAchievements.map(a => a.achievementId),
+        drawSecret: match.drawSecret,
+        drawTime: match.drawTimeMs,
+        commitment: match.drawCommitment,
         serverTime: now,
       });
     }
@@ -185,7 +209,7 @@ router.get('/:id/state', (req, res) => {
     case 'CANCELLED':
       return res.json({
         phase: 'cancelled',
-        reason: match.forfeit_reason || 'cancelled',
+        reason: match.forfeitReason || 'cancelled',
         serverTime: now,
       });
 
@@ -195,48 +219,50 @@ router.get('/:id/state', (req, res) => {
 });
 
 // POST /match/:id/tap — submit tap
-router.post('/:id/tap', (req, res) => {
+router.post('/:id/tap', async (req, res) => {
   const db = req.app.locals.db;
   const wallet = req.wallet;
   const matchId = req.params.id;
   const { tapTimestamp, clientDrawReceived, reactionMs, early } = req.body;
 
-  const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
   if (!match) {
     return res.status(404).json({ error: 'Match not found' });
   }
 
-  if (match.player_one !== wallet && match.player_two !== wallet) {
+  if (match.playerOne !== wallet && match.playerTwo !== wallet) {
     return res.status(403).json({ error: 'You are not in this match' });
   }
 
-  const isPlayerOne = match.player_one === wallet;
+  const isPlayerOne = match.playerOne === wallet;
   const now = Date.now();
 
   // Prevent duplicate taps
-  if (isPlayerOne && match.player_one_tap_at !== null) {
+  if (isPlayerOne && match.playerOneTapAt !== null) {
     return res.json({ received: true, duplicate: true });
   }
-  if (!isPlayerOne && match.player_two_tap_at !== null) {
+  if (!isPlayerOne && match.playerTwoTapAt !== null) {
     return res.json({ received: true, duplicate: true });
   }
 
   // Early tap (before draw fired)
   if (early || match.state === 'STANDOFF' || match.state === 'WAITING') {
     if (isPlayerOne) {
-      db.prepare(`
-        UPDATE matches SET player_one_tap_at = ?, player_one_reaction_ms = -1, player_one_early = 1
-        WHERE id = ?
-      `).run(now, matchId);
+      await db.update(matches).set({
+        playerOneTapAt: now,
+        playerOneReactionMs: -1,
+        playerOneEarly: 1,
+      }).where(eq(matches.id, matchId));
     } else {
-      db.prepare(`
-        UPDATE matches SET player_two_tap_at = ?, player_two_reaction_ms = -1, player_two_early = 1
-        WHERE id = ?
-      `).run(now, matchId);
+      await db.update(matches).set({
+        playerTwoTapAt: now,
+        playerTwoReactionMs: -1,
+        playerTwoEarly: 1,
+      }).where(eq(matches.id, matchId));
     }
 
     // Check if we can resolve immediately
-    tryResolve(db, matchId);
+    await tryResolve(db, matchId);
     return res.json({ received: true, early: true });
   }
 
@@ -246,7 +272,7 @@ router.post('/:id/tap', (req, res) => {
   }
 
   // Validate tap
-  const player = db.prepare('SELECT avg_rtt_ms FROM players WHERE wallet = ?').get(wallet);
+  const [player] = await db.select({ avgRttMs: players.avgRttMs }).from(players).where(eq(players.wallet, wallet));
   const tap = {
     tapTimestamp,
     clientDrawReceived,
@@ -255,7 +281,7 @@ router.post('/:id/tap', (req, res) => {
     serverReceivedAt: now,
   };
 
-  const validation = validateTap(tap, match.draw_fired_at, player?.avg_rtt_ms || 100);
+  const validation = validateTap(tap, match.drawFiredAt, player?.avgRttMs || 100);
   if (!validation.valid) {
     // Still record the tap but flag it
     console.warn(`Suspicious tap from ${wallet} in match ${matchId}: ${validation.reason}`);
@@ -263,30 +289,29 @@ router.post('/:id/tap', (req, res) => {
 
   // Record tap
   if (isPlayerOne) {
-    db.prepare(`
-      UPDATE matches SET player_one_tap_at = ?, player_one_reaction_ms = ?
-      WHERE id = ?
-    `).run(now, reactionMs, matchId);
+    await db.update(matches).set({
+      playerOneTapAt: now,
+      playerOneReactionMs: reactionMs,
+    }).where(eq(matches.id, matchId));
   } else {
-    db.prepare(`
-      UPDATE matches SET player_two_tap_at = ?, player_two_reaction_ms = ?
-      WHERE id = ?
-    `).run(now, reactionMs, matchId);
+    await db.update(matches).set({
+      playerTwoTapAt: now,
+      playerTwoReactionMs: reactionMs,
+    }).where(eq(matches.id, matchId));
   }
 
   // Try to resolve the match
-  tryResolve(db, matchId);
+  await tryResolve(db, matchId);
 
   res.json({ received: true });
 });
 
 // POST /match/:id/ready — player signals they are ready (phone still)
-router.post('/:id/ready', (req, res) => {
+router.post('/:id/ready', async (req, res) => {
   const db = req.app.locals.db;
-  const matchId = req.params.id;
 
   // Update last_seen
-  db.prepare('UPDATE players SET last_seen = ? WHERE wallet = ?').run(Date.now(), req.wallet);
+  await db.update(players).set({ lastSeen: Date.now() }).where(eq(players.wallet, req.wallet));
 
   res.json({ ready: true });
 });
@@ -294,54 +319,58 @@ router.post('/:id/ready', (req, res) => {
 /**
  * Tries to resolve a match if both players have tapped (or timed out).
  */
-function tryResolve(db, matchId) {
-  const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+async function tryResolve(db, matchId) {
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
   if (!match || match.state === 'RESOLVED' || match.state === 'SETTLED' || match.state === 'CANCELLED') {
     return;
   }
 
-  const tapOne = match.player_one_tap_at !== null ? {
-    reactionMs: match.player_one_reaction_ms,
-    early: match.player_one_early === 1,
+  const tapOne = match.playerOneTapAt !== null ? {
+    reactionMs: match.playerOneReactionMs,
+    early: match.playerOneEarly === 1,
   } : null;
 
-  const tapTwo = match.player_two_tap_at !== null ? {
-    reactionMs: match.player_two_reaction_ms,
-    early: match.player_two_early === 1,
+  const tapTwo = match.playerTwoTapAt !== null ? {
+    reactionMs: match.playerTwoReactionMs,
+    early: match.playerTwoEarly === 1,
   } : null;
 
   // Both tapped, or one tapped early — resolve now
   if (tapOne && tapTwo) {
-    doResolve(db, match, tapOne, tapTwo);
+    await doResolve(db, match, tapOne, tapTwo);
   } else if ((tapOne && tapOne.early) || (tapTwo && tapTwo.early)) {
     // One tapped early — resolve immediately
-    doResolve(db, match, tapOne, tapTwo);
+    await doResolve(db, match, tapOne, tapTwo);
   }
   // Otherwise wait for the other player (or timeout via cleanup job)
 }
 
-function doResolve(db, match, tapOne, tapTwo) {
+async function doResolve(db, match, tapOne, tapTwo) {
   const result = resolveMatch(tapOne, tapTwo);
   const now = Date.now();
 
   if (result.winner === 'cancel' || result.winner === 'rematch') {
-    db.prepare(`
-      UPDATE matches SET state = 'CANCELLED', forfeit_reason = ?, settled_at = ?
-      WHERE id = ? AND state NOT IN ('RESOLVED', 'SETTLED', 'CANCELLED')
-    `).run(result.reason, now, match.id);
+    await db.update(matches).set({
+      state: 'CANCELLED',
+      forfeitReason: result.reason,
+      settledAt: now,
+    }).where(and(eq(matches.id, match.id), notInArray(matches.state, ['RESOLVED', 'SETTLED', 'CANCELLED'])));
 
     cancelMatch(db, match.id).catch(() => {});
     return;
   }
 
-  const winnerWallet = result.winner === 'player_one' ? match.player_one : match.player_two;
+  const winnerWallet = result.winner === 'player_one' ? match.playerOne : match.playerTwo;
 
-  const updateResult = db.prepare(`
-    UPDATE matches SET state = 'RESOLVED', winner = ?, forfeit_reason = ?, settled_at = ?
-    WHERE id = ? AND state NOT IN ('RESOLVED', 'SETTLED', 'CANCELLED')
-  `).run(winnerWallet, result.reason, now, match.id);
+  const updateResult = await db.update(matches).set({
+    state: 'RESOLVED',
+    winner: winnerWallet,
+    forfeitReason: result.reason,
+    settledAt: now,
+  }).where(and(eq(matches.id, match.id), notInArray(matches.state, ['RESOLVED', 'SETTLED', 'CANCELLED'])))
+    .returning({ id: matches.id });
 
-  if (updateResult.changes > 0) {
+  if (updateResult.length > 0) {
     // Settle on-chain (async)
     settleMatch(db, match.id, winnerWallet).catch((err) => {
       console.error(`On-chain settlement failed for match ${match.id}:`, err.message);

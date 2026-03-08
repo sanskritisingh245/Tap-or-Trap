@@ -134,11 +134,9 @@ export function LobbyMenu({
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.botWrap} onPress={lowCredits ? onTopUp : onPlayBot} activeOpacity={0.9}>
-            <View style={styles.botBtn}>
-              <Text style={styles.botMeta}>PRACTICE</Text>
-              <Text style={styles.botText}>Play vs Bot</Text>
-            </View>
+          <TouchableOpacity style={styles.secondaryCard} onPress={lowCredits ? onTopUp : onPlayBot} activeOpacity={0.9}>
+            <Text style={styles.secondaryMeta}>PRACTICE</Text>
+            <Text style={styles.secondaryText}>Play vs Bot</Text>
           </TouchableOpacity>
 
           <View style={styles.secondaryRow}>
@@ -247,24 +245,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   primaryText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 24, lineHeight: 26 },
-
-  botWrap: { borderRadius: 14, overflow: 'hidden' },
-  botBtn: {
-    paddingVertical: 11,
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(83, 226, 210, 0.35)',
-    backgroundColor: 'rgba(83, 226, 210, 0.1)',
-  },
-  botMeta: {
-    color: 'rgba(83, 226, 210, 0.7)',
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    letterSpacing: 1.1,
-    marginBottom: 2,
-  },
-  botText: { color: '#53E2D2', fontFamily: fonts.display, fontSize: 18, lineHeight: 20 },
 
   secondaryRow: { flexDirection: 'row', gap: 8 },
   secondaryCard: {

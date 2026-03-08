@@ -1,7 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const { eq, and, sql, asc, inArray } = require('drizzle-orm');
+const { matches, players, queue, rooms } = require('../db/schema');
 const { generateDrawTime } = require('./draw-timer');
-const { deductCredits } = require('../solana/program');
 
 // Bot wallet prefix — any wallet starting with this is a bot
 const BOT_WALLET_PREFIX = 'BOT_';
@@ -23,33 +24,45 @@ function generateBotWallet() {
 /**
  * Ensures a bot player record exists in the database.
  */
-function ensureBotPlayer(db, botWallet) {
-  const existing = db.prepare('SELECT wallet FROM players WHERE wallet = ?').get(botWallet);
+async function ensureBotPlayer(db, botWallet) {
+  const [existing] = await db.select({ wallet: players.wallet }).from(players).where(eq(players.wallet, botWallet));
   if (!existing) {
-    db.prepare(`
-      INSERT INTO players (wallet, credits, last_seen, wins, losses, xp, tier, total_matches)
-      VALUES (?, 9999, ?, 0, 0, 0, 'BRONZE', 0)
-    `).run(botWallet, Date.now());
+    await db.insert(players).values({
+      wallet: botWallet,
+      credits: 9999,
+      lastSeen: Date.now(),
+      wins: 0,
+      losses: 0,
+      xp: 0,
+      tier: 'BRONZE',
+      totalMatches: 0,
+    });
   }
 }
 
 /**
  * Creates a match record in the database for two paired players.
  *
- * @param {object} db - SQLite database instance
+ * @param {object} db - Drizzle database instance
  * @param {string} playerOne - Wallet pubkey
  * @param {string} playerTwo - Wallet pubkey
  * @returns {object} Match record
  */
-function createMatch(db, playerOne, playerTwo) {
+async function createMatch(db, playerOne, playerTwo) {
   const matchId = uuidv4();
   const now = Date.now();
   const { drawTimeMs, secret, commitment } = generateDrawTime(now);
 
-  db.prepare(`
-    INSERT INTO matches (id, player_one, player_two, state, draw_time_ms, draw_secret, draw_commitment, created_at)
-    VALUES (?, ?, ?, 'WAITING', ?, ?, ?, ?)
-  `).run(matchId, playerOne, playerTwo, drawTimeMs, secret, commitment, now);
+  await db.insert(matches).values({
+    id: matchId,
+    playerOne,
+    playerTwo,
+    state: 'WAITING',
+    drawTimeMs,
+    drawSecret: secret,
+    drawCommitment: commitment,
+    createdAt: now,
+  });
 
   return {
     id: matchId,
@@ -66,18 +79,16 @@ function createMatch(db, playerOne, playerTwo) {
  * Pairs two players from the queue and creates a match.
  * Called periodically by the matchmaking loop.
  */
-function pairFromQueue(db) {
-  const players = db.prepare(
-    'SELECT wallet, joined_at FROM queue ORDER BY joined_at ASC LIMIT 2'
-  ).all();
+async function pairFromQueue(db) {
+  const rows = await db.select().from(queue).orderBy(asc(queue.joinedAt)).limit(2);
 
-  if (players.length >= 2) {
+  if (rows.length >= 2) {
     // Two real players — pair them
-    const playerOne = players[0].wallet;
-    const playerTwo = players[1].wallet;
-    db.prepare('DELETE FROM queue WHERE wallet IN (?, ?)').run(playerOne, playerTwo);
-    const match = createMatch(db, playerOne, playerTwo);
-    deductForMatch(db, playerOne, playerTwo, match);
+    const playerOne = rows[0].wallet;
+    const playerTwo = rows[1].wallet;
+    await db.delete(queue).where(inArray(queue.wallet, [playerOne, playerTwo]));
+    const match = await createMatch(db, playerOne, playerTwo);
+    await deductForMatch(db, playerOne, playerTwo, match);
     return match;
   }
 
@@ -86,47 +97,27 @@ function pairFromQueue(db) {
 }
 
 /**
- * Deducts credits for a match (on-chain or dev mode).
+ * Deducts credits for a match from the database.
  */
-function deductForMatch(db, playerOne, playerTwo, match) {
-  // Skip on-chain deduction if either player is a bot (bot wallets are not valid Solana keys)
-  if (process.env.SKIP_ONCHAIN !== 'true' && !isBot(playerOne) && !isBot(playerTwo)) {
-    deductCredits(playerOne, playerTwo, match.id).catch((err) => {
-      console.error(`Failed to deduct credits for match ${match.id}:`, err.message);
-      db.prepare("UPDATE matches SET state = 'CANCELLED' WHERE id = ?").run(match.id);
-      const now = Date.now();
-      db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerOne, now);
-      db.prepare('INSERT OR IGNORE INTO queue (wallet, joined_at) VALUES (?, ?)').run(playerTwo, now);
-    });
-  } else {
-    if (!isBot(playerOne)) db.prepare('UPDATE players SET credits = credits - 1 WHERE wallet = ? AND credits > 0').run(playerOne);
-    if (!isBot(playerTwo)) db.prepare('UPDATE players SET credits = credits - 1 WHERE wallet = ? AND credits > 0').run(playerTwo);
-    console.log(`[DEV] Deducted credits for match ${match.id}`);
-  }
+async function deductForMatch(db, playerOne, playerTwo, match) {
+  if (!isBot(playerOne)) await db.update(players).set({ credits: sql`${players.credits} - 1` }).where(and(eq(players.wallet, playerOne), sql`${players.credits} > 0`));
+  if (!isBot(playerTwo)) await db.update(players).set({ credits: sql`${players.credits} - 1` }).where(and(eq(players.wallet, playerTwo), sql`${players.credits} > 0`));
+  console.log(`Deducted credits for match ${match.id}`);
 }
 
 /**
  * Pairs two players from a friend challenge room.
  */
-function pairFromRoom(db, creatorWallet, joinerWallet, roomCode) {
-  const match = createMatch(db, creatorWallet, joinerWallet);
+async function pairFromRoom(db, creatorWallet, joinerWallet, roomCode) {
+  const match = await createMatch(db, creatorWallet, joinerWallet);
 
   // Link room to match
-  db.prepare('UPDATE rooms SET match_id = ? WHERE code = ?').run(match.id, roomCode);
+  await db.update(rooms).set({ matchId: match.id }).where(eq(rooms.code, roomCode));
 
-  // Trigger on-chain credit deduction (skip in dev mode)
-  if (process.env.SKIP_ONCHAIN !== 'true') {
-    deductCredits(creatorWallet, joinerWallet, match.id).catch((err) => {
-      console.error(`Failed to deduct credits for room match ${match.id}:`, err.message);
-      db.prepare("UPDATE matches SET state = 'CANCELLED' WHERE id = ?").run(match.id);
-      db.prepare("UPDATE rooms SET status = 'CANCELLED' WHERE code = ?").run(roomCode);
-    });
-  } else {
-    // Dev mode: deduct 1 credit from each player in DB
-    db.prepare('UPDATE players SET credits = credits - 1 WHERE wallet = ? AND credits > 0').run(creatorWallet);
-    db.prepare('UPDATE players SET credits = credits - 1 WHERE wallet = ? AND credits > 0').run(joinerWallet);
-    console.log(`[DEV] Deducted 1 credit each for room match ${match.id}`);
-  }
+  // Deduct 1 credit from each player in DB
+  await db.update(players).set({ credits: sql`${players.credits} - 1` }).where(and(eq(players.wallet, creatorWallet), sql`${players.credits} > 0`));
+  await db.update(players).set({ credits: sql`${players.credits} - 1` }).where(and(eq(players.wallet, joinerWallet), sql`${players.credits} > 0`));
+  console.log(`Deducted 1 credit each for room match ${match.id}`);
 
   return match;
 }
@@ -136,9 +127,9 @@ function pairFromRoom(db, creatorWallet, joinerWallet, roomCode) {
  */
 let matchmakerInterval = null;
 function startMatchmaker(db) {
-  matchmakerInterval = setInterval(() => {
+  matchmakerInterval = setInterval(async () => {
     try {
-      pairFromQueue(db);
+      await pairFromQueue(db);
     } catch (err) {
       console.error('Matchmaker error:', err.message);
     }

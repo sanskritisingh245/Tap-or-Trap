@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet, ActivityIndicator, Animated, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useMatch } from '../hooks/useMatch';
 import { useAccelerometer } from '../hooks/useAccelerometer';
+import { AppDialog } from '../components/AppDialog';
 import { LobbyMenu } from '../components/LobbyMenu';
 import { RoomCreator } from '../components/RoomCreator';
 import { RoomJoiner } from '../components/RoomJoiner';
@@ -64,6 +65,7 @@ export default function GameScreen({
   const [line, setLine] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [lobbyLoading, setLobbyLoading] = useState(false);
+  const [dialog, setDialog] = useState<{ title: string; message: string } | null>(null);
 
   const pulse = useRef(new Animated.Value(1)).current;
   const drawScale = useRef(new Animated.Value(1)).current;
@@ -300,7 +302,7 @@ export default function GameScreen({
           } catch (e: any) {
             const msg = e?.message || 'Unable to join queue';
             setError(msg);
-            Alert.alert('Find Match Failed', msg);
+            setDialog({ title: 'Find Match Failed', message: msg });
           } finally {
             setLobbyLoading(false);
           }
@@ -314,7 +316,7 @@ export default function GameScreen({
           } catch (e: any) {
             const msg = e?.message || 'Unable to start bot match';
             setError(msg);
-            Alert.alert('Bot Match Failed', msg);
+            setDialog({ title: 'Bot Match Failed', message: msg });
           } finally {
             setLobbyLoading(false);
           }
@@ -328,7 +330,7 @@ export default function GameScreen({
           } catch (e: any) {
             const msg = e?.message || 'Unable to create room';
             setError(msg);
-            Alert.alert('Create Room Failed', msg);
+            setDialog({ title: 'Create Room Failed', message: msg });
           } finally {
             setLobbyLoading(false);
           }
@@ -341,7 +343,7 @@ export default function GameScreen({
             const balance = await topUpCredits();
             setCredits(balance);
           } catch (e: any) {
-            Alert.alert('Top Up Failed', e?.message || 'Could not top up');
+            setDialog({ title: 'Top Up Failed', message: e?.message || 'Could not top up' });
           }
         }}
         onRefreshCredits={refreshCredits}
@@ -359,6 +361,12 @@ export default function GameScreen({
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : null}
+      <AppDialog
+        visible={!!dialog}
+        title={dialog?.title || ''}
+        message={dialog?.message}
+        onClose={() => setDialog(null)}
+      />
     </View>
   );
 }

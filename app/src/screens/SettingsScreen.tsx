@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AppDialog } from '../components/AppDialog';
 import { TierBadge, getTierColor } from '../components/TierBadge';
 import { fonts, palette } from '../theme/ui';
 import { getPlayerStats, PlayerStats, topUpCredits, getCreditsBalance } from '../services/api';
@@ -27,6 +28,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
 export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenProps) {
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [credits, setCredits] = useState(0);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
 
   useEffect(() => {
     if (!wallet.connected) return;
@@ -39,10 +41,7 @@ export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenPro
   const tierColor = stats ? getTierColor(stats.tier) : palette.primary;
 
   const handleDisconnect = () => {
-    Alert.alert('Disconnect Wallet', 'Are you sure you want to disconnect?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Disconnect', style: 'destructive', onPress: () => wallet.disconnect() },
-    ]);
+    setShowDisconnectDialog(true);
   };
 
   const handleTopUp = async () => {
@@ -131,6 +130,23 @@ export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenPro
           </View>
         </View>
       </ScrollView>
+      <AppDialog
+        visible={showDisconnectDialog}
+        title="Disconnect Wallet"
+        message="Are you sure you want to disconnect?"
+        onClose={() => setShowDisconnectDialog(false)}
+        actions={[
+          { label: 'Cancel', onPress: () => setShowDisconnectDialog(false) },
+          {
+            label: 'Disconnect',
+            tone: 'danger',
+            onPress: () => {
+              setShowDisconnectDialog(false);
+              wallet.disconnect();
+            },
+          },
+        ]}
+      />
     </View>
   );
 }

@@ -1,4 +1,5 @@
-const { settleMatchOnChain, cancelMatchOnChain } = require('../solana/program');
+const { eq, sql, and } = require('drizzle-orm');
+const { matches, players, achievements, dailyChallenges } = require('../db/schema');
 
 const STREAK_BONUS_THRESHOLD = 3; // Award bonus credit every 3 wins in a row
 
@@ -51,14 +52,14 @@ const ACHIEVEMENT_DEFS = [
   { id: 'centurion',   check: (ctx) => ctx.totalMatches >= 100 },
 ];
 
-function checkAchievements(db, wallet, ctx) {
+async function checkAchievements(db, wallet, ctx) {
   const newlyUnlocked = [];
-  const existing = db.prepare('SELECT achievement_id FROM achievements WHERE wallet = ?').all(wallet);
-  const existingSet = new Set(existing.map(a => a.achievement_id));
+  const existing = await db.select({ achievementId: achievements.achievementId }).from(achievements).where(eq(achievements.wallet, wallet));
+  const existingSet = new Set(existing.map(a => a.achievementId));
 
   for (const ach of ACHIEVEMENT_DEFS) {
     if (!existingSet.has(ach.id) && ach.check(ctx)) {
-      db.prepare('INSERT OR IGNORE INTO achievements (wallet, achievement_id, unlocked_at) VALUES (?, ?, ?)').run(wallet, ach.id, Date.now());
+      await db.insert(achievements).values({ wallet, achievementId: ach.id, unlockedAt: Date.now() }).onConflictDoNothing();
       newlyUnlocked.push(ach.id);
     }
   }
@@ -66,13 +67,19 @@ function checkAchievements(db, wallet, ctx) {
 }
 
 // ─── Daily Challenge Progress ─────────────────────────────────────
-function updateChallengeProgress(db, wallet, won, reactionMs, streak) {
+async function updateChallengeProgress(db, wallet, won, reactionMs, streak) {
   const today = new Date().toISOString().split('T')[0];
-  const challenges = db.prepare('SELECT * FROM daily_challenges WHERE wallet = ? AND date = ? AND completed = 0').all(wallet, today);
+  const challenges = await db.select().from(dailyChallenges).where(
+    and(
+      eq(dailyChallenges.wallet, wallet),
+      eq(dailyChallenges.date, today),
+      eq(dailyChallenges.completed, 0)
+    )
+  );
 
   for (const ch of challenges) {
     let shouldIncrement = false;
-    switch (ch.challenge_type) {
+    switch (ch.challengeType) {
       case 'win_matches':
         shouldIncrement = won;
         break;
@@ -84,9 +91,12 @@ function updateChallengeProgress(db, wallet, won, reactionMs, streak) {
         break;
       case 'win_streak':
         if (won && streak >= ch.target) {
-          db.prepare('UPDATE daily_challenges SET progress = target, completed = 1 WHERE id = ?').run(ch.id);
+          await db.update(dailyChallenges).set({ progress: sql`${dailyChallenges.target}`, completed: 1 }).where(eq(dailyChallenges.id, ch.id));
           // Award challenge rewards
-          db.prepare('UPDATE players SET credits = credits + ?, xp = xp + ? WHERE wallet = ?').run(ch.reward_credits, ch.reward_xp, wallet);
+          await db.update(players).set({
+            credits: sql`${players.credits} + ${ch.rewardCredits}`,
+            xp: sql`${players.xp} + ${ch.rewardXp}`,
+          }).where(eq(players.wallet, wallet));
           continue;
         }
         break;
@@ -94,10 +104,13 @@ function updateChallengeProgress(db, wallet, won, reactionMs, streak) {
     if (shouldIncrement) {
       const newProgress = ch.progress + 1;
       if (newProgress >= ch.target) {
-        db.prepare('UPDATE daily_challenges SET progress = ?, completed = 1 WHERE id = ?').run(newProgress, ch.id);
-        db.prepare('UPDATE players SET credits = credits + ?, xp = xp + ? WHERE wallet = ?').run(ch.reward_credits, ch.reward_xp, wallet);
+        await db.update(dailyChallenges).set({ progress: newProgress, completed: 1 }).where(eq(dailyChallenges.id, ch.id));
+        await db.update(players).set({
+          credits: sql`${players.credits} + ${ch.rewardCredits}`,
+          xp: sql`${players.xp} + ${ch.rewardXp}`,
+        }).where(eq(players.wallet, wallet));
       } else {
-        db.prepare('UPDATE daily_challenges SET progress = ? WHERE id = ?').run(newProgress, ch.id);
+        await db.update(dailyChallenges).set({ progress: newProgress }).where(eq(dailyChallenges.id, ch.id));
       }
     }
   }
@@ -106,23 +119,30 @@ function updateChallengeProgress(db, wallet, won, reactionMs, streak) {
 /**
  * Updates player stats after a match resolves.
  */
-function updatePlayerStats(db, winnerWallet, loserWallet, match) {
-  const isPlayerOneWinner = match.player_one === winnerWallet;
+async function updatePlayerStats(db, winnerWallet, loserWallet, match) {
+  const isPlayerOneWinner = match.playerOne === winnerWallet;
   const winnerReaction = isPlayerOneWinner
-    ? match.player_one_reaction_ms
-    : match.player_two_reaction_ms;
+    ? match.playerOneReactionMs
+    : match.playerTwoReactionMs;
   const loserReaction = isPlayerOneWinner
-    ? match.player_two_reaction_ms
-    : match.player_one_reaction_ms;
+    ? match.playerTwoReactionMs
+    : match.playerOneReactionMs;
 
   // Update winner stats
-  const winner = db.prepare('SELECT current_streak, max_streak, best_reaction_ms, total_matches, xp FROM players WHERE wallet = ?').get(winnerWallet);
-  const newStreak = (winner?.current_streak || 0) + 1;
-  const newMaxStreak = Math.max(newStreak, winner?.max_streak || 0);
-  const newTotalMatches = (winner?.total_matches || 0) + 1;
+  const [winner] = await db.select({
+    currentStreak: players.currentStreak,
+    maxStreak: players.maxStreak,
+    bestReactionMs: players.bestReactionMs,
+    totalMatches: players.totalMatches,
+    xp: players.xp,
+  }).from(players).where(eq(players.wallet, winnerWallet));
+
+  const newStreak = (winner?.currentStreak || 0) + 1;
+  const newMaxStreak = Math.max(newStreak, winner?.maxStreak || 0);
+  const newTotalMatches = (winner?.totalMatches || 0) + 1;
 
   // Track best reaction (only valid positive reactions, not early taps)
-  let bestReaction = winner?.best_reaction_ms;
+  let bestReaction = winner?.bestReactionMs;
   if (winnerReaction && winnerReaction > 0) {
     if (!bestReaction || winnerReaction < bestReaction) {
       bestReaction = winnerReaction;
@@ -138,56 +158,56 @@ function updatePlayerStats(db, winnerWallet, loserWallet, match) {
   const newXp = (winner?.xp || 0) + xpGain;
   const newTier = getTierForXp(newXp);
 
-  db.prepare(`
-    UPDATE players SET
-      wins = wins + 1,
-      winnings = winnings + 1,
-      total_matches = total_matches + 1,
-      current_streak = ?,
-      max_streak = ?,
-      best_reaction_ms = ?,
-      credits = credits + ?,
-      xp = ?,
-      tier = ?
-    WHERE wallet = ?
-  `).run(newStreak, newMaxStreak, bestReaction, winnerCredits, newXp, newTier, winnerWallet);
+  await db.update(players).set({
+    wins: sql`${players.wins} + 1`,
+    winnings: sql`${players.winnings} + 1`,
+    totalMatches: sql`${players.totalMatches} + 1`,
+    currentStreak: newStreak,
+    maxStreak: newMaxStreak,
+    bestReactionMs: bestReaction,
+    credits: sql`${players.credits} + ${winnerCredits}`,
+    xp: newXp,
+    tier: newTier,
+  }).where(eq(players.wallet, winnerWallet));
 
   // Update loser stats
-  const loser = db.prepare('SELECT total_matches, xp FROM players WHERE wallet = ?').get(loserWallet);
+  const [loser] = await db.select({
+    totalMatches: players.totalMatches,
+    xp: players.xp,
+  }).from(players).where(eq(players.wallet, loserWallet));
+
   const loserXpGain = calculateXpGain(false, loserReaction, 0, false);
   const loserNewXp = (loser?.xp || 0) + loserXpGain;
   const loserNewTier = getTierForXp(loserNewXp);
-  const loserTotalMatches = (loser?.total_matches || 0) + 1;
+  const loserTotalMatches = (loser?.totalMatches || 0) + 1;
 
-  db.prepare(`
-    UPDATE players SET
-      losses = losses + 1,
-      total_matches = total_matches + 1,
-      current_streak = 0,
-      xp = ?,
-      tier = ?
-    WHERE wallet = ?
-  `).run(loserNewXp, loserNewTier, loserWallet);
+  await db.update(players).set({
+    losses: sql`${players.losses} + 1`,
+    totalMatches: sql`${players.totalMatches} + 1`,
+    currentStreak: 0,
+    xp: loserNewXp,
+    tier: loserNewTier,
+  }).where(eq(players.wallet, loserWallet));
 
   if (streakBonus > 0) {
     console.log(`[STREAK] ${winnerWallet.slice(0, 8)}... hit ${newStreak}-win streak — bonus credit awarded!`);
   }
 
   // Check achievements for both players
-  const winnerAchievements = checkAchievements(db, winnerWallet, {
+  const winnerAchievements = await checkAchievements(db, winnerWallet, {
     reactionMs: winnerReaction,
     newStreak,
     totalMatches: newTotalMatches,
   });
-  const loserAchievements = checkAchievements(db, loserWallet, {
+  const loserAchievements = await checkAchievements(db, loserWallet, {
     reactionMs: loserReaction,
     newStreak: 0,
     totalMatches: loserTotalMatches,
   });
 
   // Update daily challenge progress for both
-  updateChallengeProgress(db, winnerWallet, true, winnerReaction, newStreak);
-  updateChallengeProgress(db, loserWallet, false, loserReaction, 0);
+  await updateChallengeProgress(db, winnerWallet, true, winnerReaction, newStreak);
+  await updateChallengeProgress(db, loserWallet, false, loserReaction, 0);
 
   return { newStreak, streakBonus, xpGain, newTier, winnerAchievements, loserAchievements };
 }
@@ -196,94 +216,49 @@ function updatePlayerStats(db, winnerWallet, loserWallet, match) {
  * Settles a match on-chain and updates the database.
  */
 async function settleMatch(db, matchId, winnerWallet) {
-  const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
   if (!match) throw new Error(`Match ${matchId} not found`);
   if (match.state === 'SETTLED') throw new Error(`Match ${matchId} already settled`);
 
-  const loserWallet = match.player_one === winnerWallet ? match.player_two : match.player_one;
+  const loserWallet = match.playerOne === winnerWallet ? match.playerTwo : match.playerOne;
 
   // Update player stats
-  const { newStreak, xpGain, newTier } = updatePlayerStats(db, winnerWallet, loserWallet, match);
+  const { newStreak, xpGain, newTier } = await updatePlayerStats(db, winnerWallet, loserWallet, match);
 
-  if (process.env.SKIP_ONCHAIN === 'true') {
-    db.prepare(`
-      UPDATE matches SET state = 'SETTLED', winner = ?, settle_tx = 'dev-skip', settled_at = ?
-      WHERE id = ?
-    `).run(winnerWallet, Date.now(), matchId);
-    console.log(`[DEV] Settled match ${matchId} — winner: ${winnerWallet.slice(0, 8)}... (streak: ${newStreak}, +${xpGain}xp, tier: ${newTier})`);
-    return 'dev-skip';
-  }
+  await db.update(matches).set({
+    state: 'SETTLED',
+    winner: winnerWallet,
+    settleTx: 'db-only',
+    settledAt: Date.now(),
+  }).where(eq(matches.id, matchId));
 
-  try {
-    const txSig = await settleMatchOnChain(
-      match.player_one,
-      match.player_two,
-      matchId,
-      winnerWallet
-    );
-
-    db.prepare(`
-      UPDATE matches SET
-        state = 'SETTLED',
-        winner = ?,
-        settle_tx = ?,
-        settled_at = ?
-      WHERE id = ?
-    `).run(winnerWallet, txSig, Date.now(), matchId);
-
-    return txSig;
-  } catch (err) {
-    console.error(`Failed to settle match ${matchId} on-chain:`, err.message);
-    db.prepare(`
-      UPDATE matches SET
-        state = 'RESOLVED',
-        winner = ?
-      WHERE id = ?
-    `).run(winnerWallet, matchId);
-    throw err;
-  }
+  console.log(`Settled match ${matchId} — winner: ${winnerWallet.slice(0, 8)}... (streak: ${newStreak}, +${xpGain}xp, tier: ${newTier})`);
+  return 'db-only';
 }
 
 /**
  * Cancels a match on-chain and refunds credits.
  */
 async function cancelMatch(db, matchId) {
-  const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
   if (!match) throw new Error(`Match ${matchId} not found`);
 
-  if (process.env.SKIP_ONCHAIN === 'true') {
-    db.prepare(`
-      UPDATE matches SET state = 'CANCELLED', settle_tx = 'dev-skip', settled_at = ?
-      WHERE id = ?
-    `).run(Date.now(), matchId);
-    db.prepare('UPDATE players SET credits = credits + 1 WHERE wallet = ?').run(match.player_one);
-    db.prepare('UPDATE players SET credits = credits + 1 WHERE wallet = ?').run(match.player_two);
-    console.log(`[DEV] Cancelled match ${matchId} — credits refunded`);
-    return 'dev-skip';
-  }
+  await db.update(matches).set({
+    state: 'CANCELLED',
+    settleTx: 'db-only',
+    settledAt: Date.now(),
+  }).where(eq(matches.id, matchId));
 
-  try {
-    const txSig = await cancelMatchOnChain(
-      match.player_one,
-      match.player_two,
-      matchId
-    );
+  await db.update(players).set({
+    credits: sql`${players.credits} + 1`,
+  }).where(eq(players.wallet, match.playerOne));
 
-    db.prepare(`
-      UPDATE matches SET
-        state = 'CANCELLED',
-        settle_tx = ?,
-        settled_at = ?
-      WHERE id = ?
-    `).run(txSig, Date.now(), matchId);
+  await db.update(players).set({
+    credits: sql`${players.credits} + 1`,
+  }).where(eq(players.wallet, match.playerTwo));
 
-    return txSig;
-  } catch (err) {
-    console.error(`Failed to cancel match ${matchId} on-chain:`, err.message);
-    db.prepare("UPDATE matches SET state = 'CANCELLED', settled_at = ? WHERE id = ?")
-      .run(Date.now(), matchId);
-    throw err;
-  }
+  console.log(`Cancelled match ${matchId} — credits refunded`);
+  return 'db-only';
 }
 
 module.exports = { settleMatch, cancelMatch, TIERS, getTierForXp, getXpToNextTier };

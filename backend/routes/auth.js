@@ -3,12 +3,14 @@ const crypto = require('crypto');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
 const { signToken } = require('../middleware/auth');
+const { eq } = require('drizzle-orm');
+const { players } = require('../db/schema');
 
 const router = express.Router();
 
 // GET /auth/nonce?wallet=<pubkey>
 // Generates a random nonce for the player to sign
-router.get('/nonce', (req, res) => {
+router.get('/nonce', async (req, res) => {
   const { wallet } = req.query;
   if (!wallet || typeof wallet !== 'string') {
     return res.status(400).json({ error: 'Missing wallet query parameter' });
@@ -19,21 +21,17 @@ router.get('/nonce', (req, res) => {
   const nonceExpires = Date.now() + 5 * 60 * 1000; // 5 min TTL
 
   // Upsert player with nonce
-  db.prepare(`
-    INSERT INTO players (wallet, nonce, nonce_expires, last_seen)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(wallet) DO UPDATE SET
-      nonce = excluded.nonce,
-      nonce_expires = excluded.nonce_expires,
-      last_seen = excluded.last_seen
-  `).run(wallet, nonce, nonceExpires, Date.now());
+  await db.insert(players).values({ wallet, nonce, nonceExpires, lastSeen: Date.now() }).onConflictDoUpdate({
+    target: players.wallet,
+    set: { nonce, nonceExpires, lastSeen: Date.now() },
+  });
 
   res.json({ nonce });
 });
 
 // POST /auth/verify
 // Verifies the player's ed25519 signature of the nonce
-router.post('/verify', (req, res) => {
+router.post('/verify', async (req, res) => {
   const { wallet, signature, nonce } = req.body;
   if (!wallet || !signature || !nonce) {
     return res.status(400).json({ error: 'Missing wallet, signature, or nonce' });
@@ -42,14 +40,18 @@ router.post('/verify', (req, res) => {
   const db = req.app.locals.db;
 
   // Look up stored nonce
-  const player = db.prepare('SELECT nonce, nonce_expires FROM players WHERE wallet = ?').get(wallet);
+  const [player] = await db
+    .select({ nonce: players.nonce, nonceExpires: players.nonceExpires })
+    .from(players)
+    .where(eq(players.wallet, wallet));
+
   if (!player) {
     return res.status(401).json({ error: 'Unknown wallet. Request a nonce first.' });
   }
   if (player.nonce !== nonce) {
     return res.status(401).json({ error: 'Nonce mismatch' });
   }
-  if (Date.now() > player.nonce_expires) {
+  if (Date.now() > player.nonceExpires) {
     return res.status(401).json({ error: 'Nonce expired. Request a new one.' });
   }
 
@@ -67,25 +69,23 @@ router.post('/verify', (req, res) => {
     return res.status(401).json({ error: 'Signature verification failed' });
   }
 
-  // Clear nonce (single-use)
+  // Clear nonce (single-use) and store session token
   const token = signToken(wallet);
   const sessionExpires = Date.now() + 15 * 60 * 1000; // 15 min
 
-  db.prepare(`
-    UPDATE players SET
-      nonce = NULL,
-      nonce_expires = NULL,
-      session_token = ?,
-      session_expires = ?,
-      last_seen = ?
-    WHERE wallet = ?
-  `).run(token, sessionExpires, Date.now(), wallet);
+  await db.update(players).set({
+    nonce: null,
+    nonceExpires: null,
+    sessionToken: token,
+    sessionExpires,
+    lastSeen: Date.now(),
+  }).where(eq(players.wallet, wallet));
 
   res.json({ token });
 });
 
 // POST /auth/dev-login — dev mode: skip signature, issue JWT directly
-router.post('/dev-login', (req, res) => {
+router.post('/dev-login', async (req, res) => {
   const { wallet } = req.body;
   if (!wallet || typeof wallet !== 'string') {
     return res.status(400).json({ error: 'Missing wallet' });
@@ -94,11 +94,10 @@ router.post('/dev-login', (req, res) => {
   const db = req.app.locals.db;
 
   // Upsert player
-  db.prepare(`
-    INSERT INTO players (wallet, last_seen)
-    VALUES (?, ?)
-    ON CONFLICT(wallet) DO UPDATE SET last_seen = excluded.last_seen
-  `).run(wallet, Date.now());
+  await db.insert(players).values({ wallet, lastSeen: Date.now() }).onConflictDoUpdate({
+    target: players.wallet,
+    set: { lastSeen: Date.now() },
+  });
 
   const token = signToken(wallet);
   res.json({ token });
