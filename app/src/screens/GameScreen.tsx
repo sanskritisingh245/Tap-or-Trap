@@ -145,7 +145,7 @@ export default function GameScreen({
     );
   }
 
-  if (uiMode === 'join_code') {
+  if (uiMode === 'join_code' && match.phase !== 'standoff' && match.phase !== 'draw' && match.phase !== 'waiting_result' && match.phase !== 'result') {
     return (
       <RoomJoiner
         onJoin={async (code) => {
@@ -153,6 +153,7 @@ export default function GameScreen({
           setJoinLoading(true);
           try {
             await match.joinRoom(code);
+            setUiMode('game');
           } catch (e: any) {
             setJoinError(e?.message || 'Join failed');
           } finally {

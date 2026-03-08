@@ -129,8 +129,9 @@ function updatePlayerStats(db, winnerWallet, loserWallet, match) {
     }
   }
 
-  // Streak bonus: award 1 extra credit every STREAK_BONUS_THRESHOLD wins
+  // Winner gets the pot (2 credits: their 1 back + opponent's 1) plus streak bonus
   const streakBonus = (newStreak % STREAK_BONUS_THRESHOLD === 0) ? 1 : 0;
+  const winnerCredits = 2 + streakBonus; // pot + streak bonus
 
   // XP calculation
   const xpGain = calculateXpGain(true, winnerReaction, newStreak, false);
@@ -149,7 +150,7 @@ function updatePlayerStats(db, winnerWallet, loserWallet, match) {
       xp = ?,
       tier = ?
     WHERE wallet = ?
-  `).run(newStreak, newMaxStreak, bestReaction, streakBonus, newXp, newTier, winnerWallet);
+  `).run(newStreak, newMaxStreak, bestReaction, winnerCredits, newXp, newTier, winnerWallet);
 
   // Update loser stats
   const loser = db.prepare('SELECT total_matches, xp FROM players WHERE wallet = ?').get(loserWallet);
