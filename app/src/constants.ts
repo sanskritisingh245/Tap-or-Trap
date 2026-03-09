@@ -1,12 +1,4 @@
-import { Platform } from 'react-native';
-
-// Android emulator uses 10.0.2.2 to reach host localhost
-// iOS simulator uses localhost directly
-export const API_URL = __DEV__
-  ? Platform.OS === 'android'
-    ? 'http://10.0.2.2:3000'
-    : 'http://localhost:3000'
-  : 'https://api.taprush.app';
+export const API_URL = 'https://api.fastdraw.fun';
 
 // Solana config
 export const PROGRAM_ID = 'HKUeBck47FAtguvzH1oceCshmMSxgXqKHTnN2RmcTNsH';
@@ -18,8 +10,8 @@ export const TREASURY_WALLET = '5q757H3kuBXAePqYFRKD1UDBey3cQGuSEGV3PXUcHRYT';
 
 // Mobile Wallet Adapter identity
 export const APP_IDENTITY = {
-  name: 'TapRush',
-  uri: 'https://taprush.app',
+  name: 'FastDraw',
+  uri: 'https://fastdraw.fun',
   icon: 'favicon.ico',
 };
 

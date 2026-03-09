@@ -177,9 +177,18 @@ export async function devLogin(wallet: string): Promise<string> {
 
 // ─── Credits ──────────────────────────────────────────────────────
 
-export async function getCreditsBalance(): Promise<number> {
+export async function getCreditsBalance(): Promise<{ playsRemaining: number; winnings: number }> {
   const data = await apiFetch('/credits/balance');
-  return data.playsRemaining;
+  return { playsRemaining: data.playsRemaining, winnings: data.winnings ?? 0 };
+}
+
+export async function withdrawCredits(credits?: number): Promise<{
+  playsRemaining: number; withdrawn: number; lamports: number; signature: string;
+}> {
+  return apiFetch('/credits/withdraw', {
+    method: 'POST',
+    body: JSON.stringify({ credits }),
+  });
 }
 
 export async function topUpCredits(): Promise<number> {

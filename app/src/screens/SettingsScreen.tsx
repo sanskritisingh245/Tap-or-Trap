@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppDialog } from '../components/AppDialog';
 import { TierBadge, getTierColor } from '../components/TierBadge';
 import { fonts, palette } from '../theme/ui';
-import { getPlayerStats, PlayerStats, topUpCredits, getCreditsBalance } from '../services/api';
+import { getPlayerStats, PlayerStats, topUpCredits, getCreditsBalance, withdrawCredits } from '../services/api';
 import { deriveUsername } from '../utils/username';
 
 interface SettingsScreenProps {
@@ -28,12 +28,24 @@ function StatTile({ label, value }: { label: string; value: string }) {
 export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenProps) {
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [credits, setCredits] = useState(0);
+  const [winnings, setWinnings] = useState(0);
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
+  const [showCashoutDialog, setShowCashoutDialog] = useState(false);
+  const [cashoutLoading, setCashoutLoading] = useState(false);
+  const [cashoutResult, setCashoutResult] = useState<{ withdrawn: number; signature: string } | null>(null);
+  const [cashoutError, setCashoutError] = useState<string | null>(null);
+
+  const refreshBalance = () => {
+    getCreditsBalance().then((b) => {
+      setCredits(b.playsRemaining);
+      setWinnings(b.winnings);
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     if (!wallet.connected) return;
     getPlayerStats().then(setStats).catch(() => {});
-    getCreditsBalance().then(setCredits).catch(() => {});
+    refreshBalance();
   }, [wallet.connected]);
 
   const address = wallet.publicKey || '';
@@ -51,6 +63,20 @@ export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenPro
     } catch {}
   };
 
+  const handleCashout = async () => {
+    setShowCashoutDialog(false);
+    setCashoutLoading(true);
+    try {
+      const result = await withdrawCredits();
+      setCashoutResult({ withdrawn: result.withdrawn, signature: result.signature });
+      refreshBalance();
+    } catch (e: any) {
+      setCashoutError(e?.message || 'Withdrawal failed');
+    } finally {
+      setCashoutLoading(false);
+    }
+  };
+
   const xpProgress = stats && stats.nextTier
     ? Math.min(((stats.xpThreshold - stats.xpToNext) / stats.xpThreshold) * 100, 100)
     : 100;
@@ -61,7 +87,9 @@ export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenPro
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.panel}>
           <View style={styles.headerRow}>
-            <Text style={styles.kicker}>TapRush</Text>
+            <TouchableOpacity style={styles.backBtn} onPress={() => onNavigate('home')} activeOpacity={0.7}>
+              <View style={styles.chevron} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.topChip} onPress={handleTopUp} activeOpacity={0.86}>
               <Text style={styles.topChipText}>Top Up +</Text>
             </TouchableOpacity>
@@ -90,6 +118,14 @@ export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenPro
             <Text style={styles.balanceMeta}>{stats ? `${stats.xp} XP` : '0 XP'}</Text>
           </View>
 
+          <View style={styles.winningsCard}>
+            <View>
+              <Text style={styles.winningsLabel}>WINNINGS</Text>
+              <Text style={styles.winningsValue}>{winnings} credits</Text>
+            </View>
+            <Text style={styles.winningsSol}>{(winnings * 0.01).toFixed(2)} SOL</Text>
+          </View>
+
           {stats ? (
             <>
               <View style={styles.progressRow}>
@@ -112,15 +148,27 @@ export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenPro
           ) : null}
 
           <View style={styles.bottomActions}>
-            <TouchableOpacity style={styles.primaryWrap} onPress={() => onNavigate('home')} activeOpacity={0.9}>
-              <LinearGradient colors={['#2A355C', '#132144']} style={styles.primaryBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                <Text style={styles.primaryBtnText}>Back Home</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
             <TouchableOpacity style={styles.secondaryWrap} onPress={handleTopUp} activeOpacity={0.9}>
               <LinearGradient colors={['#E8C58F', '#CAA069']} style={styles.secondaryBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                 <Text style={styles.secondaryBtnText}>Top Up Credits</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryWrap, { marginTop: 10 }]}
+              onPress={() => setShowCashoutDialog(true)}
+              activeOpacity={0.9}
+              disabled={winnings === 0 || cashoutLoading}
+            >
+              <LinearGradient
+                colors={['#E8C58F', '#CAA069']}
+                style={[styles.secondaryBtn, { opacity: winnings > 0 ? 1 : 0.5 }]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.secondaryBtnText}>
+                  {cashoutLoading ? 'Processing...' : 'Cashout Winnings'}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -147,6 +195,30 @@ export default function SettingsScreen({ wallet, onNavigate }: SettingsScreenPro
           },
         ]}
       />
+      <AppDialog
+        visible={showCashoutDialog}
+        title="Confirm Cashout"
+        message={`Withdraw ${winnings} credits → ${(winnings * 0.01).toFixed(2)} SOL to your wallet?`}
+        onClose={() => setShowCashoutDialog(false)}
+        actions={[
+          { label: 'Cancel', onPress: () => setShowCashoutDialog(false) },
+          { label: 'Withdraw', onPress: handleCashout },
+        ]}
+      />
+      <AppDialog
+        visible={!!cashoutResult}
+        title="Cashout Successful"
+        message={cashoutResult ? `Withdrew ${cashoutResult.withdrawn} credits.\nTx: ${cashoutResult.signature.slice(0, 16)}...` : ''}
+        onClose={() => setCashoutResult(null)}
+        actions={[{ label: 'OK', onPress: () => setCashoutResult(null) }]}
+      />
+      <AppDialog
+        visible={!!cashoutError}
+        title="Cashout Failed"
+        message={cashoutError || ''}
+        onClose={() => setCashoutError(null)}
+        actions={[{ label: 'OK', onPress: () => setCashoutError(null) }]}
+      />
     </View>
   );
 }
@@ -161,7 +233,25 @@ const styles = StyleSheet.create({
   },
 
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  kicker: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'rgba(205, 167, 109, 0.45)',
+    backgroundColor: 'rgba(232, 197, 143, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chevron: {
+    width: 10,
+    height: 10,
+    borderLeftWidth: 2.5,
+    borderBottomWidth: 2.5,
+    borderColor: '#DCC5A2',
+    transform: [{ rotate: '45deg' }],
+    marginLeft: 3,
+  },
   topChip: {
     borderRadius: 10,
     borderWidth: 1,
@@ -215,6 +305,22 @@ const styles = StyleSheet.create({
   balanceValue: { marginTop: 3, color: '#F7EAD7', fontFamily: fonts.display, fontSize: 28, lineHeight: 30 },
   balanceMeta: { color: '#E6CEA8', fontFamily: fonts.body, fontSize: 14 },
 
+  winningsCard: {
+    marginTop: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.4)',
+    backgroundColor: 'rgba(76, 175, 80, 0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  winningsLabel: { color: '#81C784', fontFamily: fonts.mono, fontSize: 10 },
+  winningsValue: { marginTop: 3, color: '#A5D6A7', fontFamily: fonts.display, fontSize: 22, lineHeight: 24 },
+  winningsSol: { color: '#81C784', fontFamily: fonts.body, fontSize: 14 },
+
   progressRow: { marginTop: 12, flexDirection: 'row', justifyContent: 'space-between' },
   progressLabel: { color: palette.muted, fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.1 },
   progressMeta: { color: '#E6CEA8', fontFamily: fonts.mono, fontSize: 11 },
@@ -243,11 +349,8 @@ const styles = StyleSheet.create({
   statValue: { marginTop: 3, color: palette.text, fontFamily: fonts.display, fontSize: 15 },
 
   bottomActions: { marginTop: 'auto', paddingTop: 14 },
-  primaryWrap: { borderRadius: 14, overflow: 'hidden' },
-  primaryBtn: { paddingVertical: 15, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(224,198,159,0.4)' },
-  primaryBtnText: { color: '#F3E2C8', fontFamily: fonts.display, fontSize: 24, lineHeight: 26 },
 
-  secondaryWrap: { marginTop: 10, borderRadius: 14, overflow: 'hidden' },
+  secondaryWrap: { borderRadius: 14, overflow: 'hidden' },
   secondaryBtn: { paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(120, 84, 39, 0.4)' },
   secondaryBtnText: { color: '#4D3520', fontFamily: fonts.display, fontSize: 20, lineHeight: 22 },
 

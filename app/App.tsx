@@ -11,7 +11,7 @@ import { BottomTabBar } from './src/components/BottomTabBar';
 import { useWallet } from './src/hooks/useWallet';
 import { palette, fonts } from './src/theme/ui';
 
-export type Screen = 'home' | 'taprush' | 'missions' | 'settings';
+export type Screen = 'home' | 'taprush' | 'missions' | 'settings' | 'leaderboard' | 'history';
 
 const TAB_SCREENS: Screen[] = ['home', 'missions'];
 
@@ -67,7 +67,7 @@ export default function App() {
   }
 
   const showTabBar = wallet.connected && TAB_SCREENS.includes(currentScreen);
-  const showProfileEntry = wallet.connected && currentScreen !== 'settings' && currentScreen !== 'taprush';
+  const showProfileEntry = wallet.connected && currentScreen !== 'settings' && currentScreen !== 'taprush' && currentScreen !== 'leaderboard' && currentScreen !== 'history';
 
   return (
     <View style={styles.root}>
@@ -75,6 +75,8 @@ export default function App() {
       <View style={styles.content}>
         {currentScreen === 'home' && <HomeScreen onNavigate={setCurrentScreen} wallet={wallet} />}
         {currentScreen === 'taprush' && <GameScreen onBack={goHome} wallet={wallet} />}
+        {currentScreen === 'leaderboard' && <GameScreen onBack={goHome} wallet={wallet} initialMode="leaderboard" />}
+        {currentScreen === 'history' && <GameScreen onBack={goHome} wallet={wallet} initialMode="history" />}
         {currentScreen === 'missions' && <MissionsScreen />}
         {currentScreen === 'settings' && (
           <SettingsScreen wallet={wallet} onNavigate={(s) => setCurrentScreen(s as Screen)} />

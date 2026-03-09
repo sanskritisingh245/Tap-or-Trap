@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { getCreditsBalance, getPlayerStats, claimDailyLogin } from '../services/api';
+import { getCreditsBalance, getPlayerStats, claimDailyLogin, withdrawCredits } from '../services/api';
 import { AppDialog } from '../components/AppDialog';
 import { fonts, palette, shadows } from '../theme/ui';
 import type { Screen } from '../../App';
@@ -38,20 +38,38 @@ function StatTile({ label, value }: { label: string; value: string }) {
 
 export default function HomeScreen({ onNavigate, wallet }: Props) {
   const [credits, setCredits] = useState(0);
+  const [winnings, setWinnings] = useState(0);
   const [tier, setTier] = useState('BRONZE');
   const [xp, setXp] = useState(0);
   const [streak, setStreak] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [cashoutLoading, setCashoutLoading] = useState(false);
+  const [showCashoutDialog, setShowCashoutDialog] = useState(false);
   const [dialog, setDialog] = useState<{ title: string; message: string } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
       const [bal, stats] = await Promise.all([getCreditsBalance(), getPlayerStats()]);
-      setCredits(bal);
+      setCredits(bal.playsRemaining);
+      setWinnings(bal.winnings);
       setTier(stats.tier);
       setXp(stats.xp);
     } catch {}
   }, []);
+
+  const handleCashout = async () => {
+    setShowCashoutDialog(false);
+    setCashoutLoading(true);
+    try {
+      const result = await withdrawCredits();
+      setDialog({ title: 'Cashout Successful', message: `Withdrew ${result.withdrawn} credits.\nTx: ${result.signature.slice(0, 16)}...` });
+      await loadData();
+    } catch (e: any) {
+      setDialog({ title: 'Cashout Failed', message: e?.message || 'Withdrawal failed' });
+    } finally {
+      setCashoutLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!wallet.connected) return;
@@ -122,8 +140,8 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
                   await wallet.deposit();
                   console.log('[HOME] deposit() returned, refreshing balance...');
                   const b = await getCreditsBalance();
-                  console.log('[HOME] New balance:', b);
-                  setCredits(b);
+                  console.log('[HOME] New balance:', b.playsRemaining);
+                  setCredits(b.playsRemaining);
                 } catch (e: any) {
                   console.error('[HOME] Top Up FAILED:', e?.message, e?.stack);
                   setDialog({ title: 'Top Up Failed', message: e?.message || 'Could not top up credits' });
@@ -152,6 +170,32 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
               <Text style={styles.balanceMeta}>{xp} XP</Text>
             </View>
 
+            {winnings > 0 && (
+              <View style={styles.winningsCard}>
+                <View>
+                  <Text style={styles.winningsLabel}>WINNINGS</Text>
+                  <Text style={styles.winningsValue}>{winnings} credits</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.winningsWithdrawWrap}
+                  onPress={() => setShowCashoutDialog(true)}
+                  disabled={cashoutLoading}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={['#E8C58F', '#CAA069']}
+                    style={[styles.secondaryBtn, styles.winningsWithdrawBtn, { opacity: cashoutLoading ? 0.7 : 1 }]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.secondaryBtnText}>
+                      {cashoutLoading ? 'Processing...' : `Withdraw ${(winnings * 0.01).toFixed(2)} SOL`}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <View style={styles.statsRow}>
               <StatTile label="Tier" value={tier} />
               <StatTile label="Streak" value={`${streak}d`} />
@@ -179,11 +223,11 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
             </TouchableOpacity>
 
             <View style={styles.utilityRow}>
-              <TouchableOpacity style={styles.utilityCard} onPress={() => onNavigate('taprush')} activeOpacity={0.86}>
+              <TouchableOpacity style={styles.utilityCard} onPress={() => onNavigate('leaderboard')} activeOpacity={0.86}>
                 <Text style={styles.utilityMeta}>RANK</Text>
                 <Text style={styles.utilityLabel}>Leaderboard</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.utilityCard} onPress={() => onNavigate('taprush')} activeOpacity={0.86}>
+              <TouchableOpacity style={styles.utilityCard} onPress={() => onNavigate('history')} activeOpacity={0.86}>
                 <Text style={styles.utilityMeta}>LOG</Text>
                 <Text style={styles.utilityLabel}>Match History</Text>
               </TouchableOpacity>
@@ -197,8 +241,8 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
                     await wallet.deposit();
                     console.log('[HOME] deposit() returned, refreshing balance...');
                     const b = await getCreditsBalance();
-                    console.log('[HOME] New balance:', b);
-                    setCredits(b);
+                    console.log('[HOME] New balance:', b.playsRemaining);
+                    setCredits(b.playsRemaining);
                   } catch (e: any) {
                     console.error('[HOME] BOOST Top Up FAILED:', e?.message, e?.stack);
                     setDialog({ title: 'Top Up Failed', message: e?.message || 'Could not top up credits' });
@@ -214,6 +258,16 @@ export default function HomeScreen({ onNavigate, wallet }: Props) {
           </View>
         </View>
       </ScrollView>
+      <AppDialog
+        visible={showCashoutDialog}
+        title="Confirm Cashout"
+        message={`Withdraw ${winnings} credits → ${(winnings * 0.01).toFixed(2)} SOL to your wallet?`}
+        onClose={() => setShowCashoutDialog(false)}
+        actions={[
+          { label: 'Cancel', onPress: () => setShowCashoutDialog(false) },
+          { label: 'Withdraw', onPress: handleCashout },
+        ]}
+      />
       <AppDialog
         visible={!!dialog}
         title={dialog?.title || ''}
@@ -314,6 +368,23 @@ const styles = StyleSheet.create({
   balanceLabel: { color: '#E6CEA8', fontFamily: fonts.mono, fontSize: 10 },
   balanceValue: { marginTop: 3, color: '#F7EAD7', fontFamily: fonts.display, fontSize: 28, lineHeight: 30 },
   balanceMeta: { color: '#E6CEA8', fontFamily: fonts.body, fontSize: 14 },
+
+  winningsCard: {
+    marginTop: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 194, 151, 0.4)',
+    backgroundColor: 'rgba(231, 210, 175, 0.14)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  winningsLabel: { color: '#E6CEA8', fontFamily: fonts.mono, fontSize: 10 },
+  winningsValue: { marginTop: 3, color: '#F7EAD7', fontFamily: fonts.display, fontSize: 20, lineHeight: 22 },
+  winningsWithdrawWrap: { borderRadius: 12, overflow: 'hidden' },
+  winningsWithdrawBtn: { paddingHorizontal: 10, paddingVertical: 8 },
 
   statsRow: { marginTop: 14, flexDirection: 'row', gap: 10 },
   statTile: {

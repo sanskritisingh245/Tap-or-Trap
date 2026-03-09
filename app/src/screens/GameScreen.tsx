@@ -50,14 +50,16 @@ const LOSE_LINES = ['Close one', 'Try again', 'You are improving'];
 export default function GameScreen({
   onBack,
   wallet,
+  initialMode = 'lobby',
 }: {
   onBack?: () => void;
   wallet: { publicKey: string | null; connected: boolean; loading: boolean; connect: () => Promise<void> };
+  initialMode?: UIMode;
 }) {
   const match = useMatch();
   const { isStill } = useAccelerometer(match.phase === 'standoff');
 
-  const [uiMode, setUiMode] = useState<UIMode>('lobby');
+  const [uiMode, setUiMode] = useState<UIMode>(initialMode);
   const [credits, setCredits] = useState<number | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinLoading, setJoinLoading] = useState(false);
@@ -110,8 +112,8 @@ export default function GameScreen({
   const refreshCredits = useCallback(async () => {
     try {
       const b = await getCreditsBalance();
-      setCredits(b);
-      return b;
+      setCredits(b.playsRemaining);
+      return b.playsRemaining;
     } catch {
       setCredits(0);
       return 0;
@@ -169,8 +171,8 @@ export default function GameScreen({
     );
   }
 
-  if (uiMode === 'history') return <MatchHistory onBack={() => setUiMode('lobby')} />;
-  if (uiMode === 'leaderboard') return <Leaderboard onBack={() => setUiMode('lobby')} />;
+  if (uiMode === 'history') return <MatchHistory onBack={initialMode === 'history' && onBack ? onBack : () => setUiMode('lobby')} />;
+  if (uiMode === 'leaderboard') return <Leaderboard onBack={initialMode === 'leaderboard' && onBack ? onBack : () => setUiMode('lobby')} />;
 
   if (match.phase === 'waiting_room' && match.roomCode) {
     return <RoomCreator roomCode={match.roomCode} onCancel={async () => { await match.cancelRoom(); setUiMode('lobby'); }} />;
